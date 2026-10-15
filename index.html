@@ -1,0 +1,1931 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Day to Day</title>
+<meta name="description" content="Money, bills, tips, food, meals, calories and habits.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Day to Day">
+<meta name="theme-color" content="#eef1ee" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#121815" media="(prefers-color-scheme: dark)">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: one narrow column, like a stack of cash envelopes — month summary, envelopes, add form, ledger. */
+:root {
+  --bg: #eef1ee; --card: #fbfcfa; --fg: #1d2a24; --muted: #5e6d65; --line: #d3dbd5;
+  --accent: #1f7a54; --accent-fg: #ffffff; --warn: #b7791f; --over: #c0392b; --track: #dde5df; --bill: #a3466f;
+  --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #121815; --card: #1a221e; --fg: #e4ebe6; --muted: #93a39a; --line: #2c3832;
+  --accent: #4cc38a; --accent-fg: #0d1a13; --warn: #e0a84a; --over: #ef6b5d; --track: #26302b; --bill: #e58fb6; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #121815; --card: #1a221e; --fg: #e4ebe6; --muted: #93a39a; --line: #2c3832;
+  --accent: #4cc38a; --accent-fg: #0d1a13; --warn: #e0a84a; --over: #ef6b5d; --track: #26302b; --bill: #e58fb6; color-scheme: dark }
+
+body { background: var(--bg); color: var(--fg); font: 15px/1.5 var(--body); padding: 0 16px; }
+main { max-width: 640px; margin: 0 auto; padding-block: 20px 48px; display: grid; gap: 20px; }
+h1, h2 { font-family: var(--display); margin: 0; text-wrap: balance; }
+h1 { font-size: 1.6rem; font-weight: 800; letter-spacing: -0.01em; }
+h2 { font-size: 1.05rem; font-weight: 600; }
+.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.muted { color: var(--muted); }
+.label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; }
+
+header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.month { display: flex; align-items: center; gap: 6px; }
+.month span { min-width: 9.5em; text-align: center; font-weight: 600; }
+button { font: inherit; cursor: pointer; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--fg); padding: 8px 12px; }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); font-weight: 600; }
+.icon { padding: 6px 10px; }
+
+.summary { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; display: grid; gap: 10px; }
+.summary .big { font-size: 1.9rem; font-family: var(--display); font-weight: 800; line-height: 1.1; }
+.bar { height: 8px; background: var(--track); border-radius: 99px; overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--accent); border-radius: 99px; }
+.bar.warn i { background: var(--warn); } .bar.over i { background: var(--over); }
+
+.envelopes { display: grid; gap: 8px; }
+.env { display: grid; gap: 6px; padding: 12px 0; border-bottom: 1px dashed var(--line); }
+details.env > summary { list-style: none; cursor: pointer; display: grid; gap: 6px; }
+details.env > summary::-webkit-details-marker { display: none; }
+details.env > summary .env-name::before { content: "▸ "; color: var(--muted); }
+details.env[open] > summary .env-name::before { content: "▾ "; }
+.env-top { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; flex-wrap: wrap; }
+.env-name { font-weight: 600; }
+.pill { font-size: 0.75rem; font-weight: 600; padding: 1px 8px; border-radius: 99px; border: 1px solid currentColor; }
+.pill.over { color: var(--over); } .pill.warn { color: var(--warn); }
+
+form, .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; display: grid; gap: 12px; }
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (max-width: 420px) { .row { grid-template-columns: 1fr; } }
+label { display: grid; gap: 4px; min-width: 0; }
+input, select { font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px; width: 100%; box-sizing: border-box; min-width: 0; }
+.status { min-height: 1.4em; font-size: 0.9rem; color: var(--muted); }
+.status.err { color: var(--over); }
+
+.ledger { list-style: none; margin: 0; padding: 0; }
+.ledger li { display: grid; grid-template-columns: auto 1fr auto auto; gap: 10px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.ledger .when { font-size: 0.85rem; color: var(--muted); width: 3.2em; }
+.ledger .what { min-width: 0; overflow-wrap: anywhere; }
+.ledger .what small { display: block; color: var(--muted); }
+.del { padding: 4px 9px; font-size: 0.85rem; color: var(--muted); }
+.del[data-armed] { color: var(--over); border-color: var(--over); }
+
+details summary { cursor: pointer; font-weight: 600; font-family: var(--display); }
+.brow { display: grid; grid-template-columns: 1fr 8em auto; gap: 8px; align-items: center; }
+.notice { background: var(--card); border: 1px solid var(--warn); border-radius: 12px; padding: 12px 16px; }
+@media (prefers-reduced-motion: no-preference) { .bar i { transition: width .3s ease; } }
+
+.cal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.wd { font-size: 0.7rem; text-align: center; color: var(--muted); font-weight: 600; }
+.day { aspect-ratio: 1 / 1; max-width: 100%; padding: 4px 5px; border-radius: 8px; display: flex; flex-direction: column; justify-content: space-between; align-items: flex-start; font-size: 0.85rem; min-width: 0; }
+.day.today { border-color: var(--accent); font-weight: 700; }
+.day[aria-pressed="true"] { outline: 2px solid var(--accent); outline-offset: 1px; }
+.dots { display: flex; gap: 3px; flex-wrap: wrap; }
+.dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+.dot.pay { background: var(--accent); } .dot.bill { background: var(--bill); }
+.legend { display: flex; gap: 12px; font-size: 0.85rem; color: var(--muted); align-items: center; flex-wrap: wrap; }
+.totals { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 0.9rem; }
+.kind { font-size: 0.75rem; font-weight: 600; }
+.kind.pay { color: var(--accent); } .kind.bill { color: var(--bill); }
+form.plain { background: none; border: 0; padding: 0; }
+.dot.bill.paid { background: transparent; box-shadow: inset 0 0 0 1.5px var(--bill); }
+.paidbox { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+.paidbox input { width: auto; accent-color: var(--bill); }
+.what.done > span { text-decoration: line-through; color: var(--muted); }
+#leftMath { font-size: 0.85rem; overflow-wrap: anywhere; }
+.alert { border: 1px solid var(--warn); color: var(--warn); background: var(--card); border-radius: 12px; padding: 12px 16px; font-weight: 600; overflow-wrap: anywhere; }
+.alert.urgent { border-color: var(--over); color: var(--over); }
+.tabpane { display: grid; gap: 20px; }
+.tabs { display: flex; gap: 4px; background: var(--track); padding: 4px; border-radius: 10px; }
+.tabs button { flex: 1; border: 0; background: transparent; font-weight: 600; color: var(--muted); }
+.tabs button[aria-pressed="true"] { background: var(--card); color: var(--fg); box-shadow: 0 1px 2px rgb(0 0 0 / 0.12); }
+.ledger li.food { grid-template-columns: auto 1fr auto auto; }
+.small-btn { padding: 4px 10px; font-size: 0.85rem; }
+.dot.exp { background: var(--muted); } .dot.exp.warn { background: var(--warn); } .dot.exp.over { background: var(--over); }
+.exprow { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--muted); margin-top: 2px; }
+.exprow input { width: auto; padding: 2px 6px; font-size: 0.8rem; }
+.plan { display: grid; gap: 8px; }
+.planday { display: grid; grid-template-columns: 4.6em 1fr; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--line); align-items: start; }
+.planday.today .pd { color: var(--accent); font-weight: 700; }
+.pd { font-size: 0.85rem; line-height: 1.3; }
+.slots { display: grid; gap: 6px; min-width: 0; }
+.slot { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; min-width: 0; }
+.slot .meal-name { overflow-wrap: anywhere; min-width: 0; flex: 1; }
+.slot .label { width: 3.6em; }
+.addslot { padding: 3px 10px; font-size: 0.85rem; color: var(--muted); border-style: dashed; }
+.slot select, .slot input { width: auto; flex: 1; min-width: 8em; padding: 5px 8px; }
+.meal-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.meal-actions a { color: var(--accent); font-size: 0.9rem; }
+details.recipe summary { font-family: var(--body); font-weight: 600; }
+.kmeals { display: grid; gap: 4px; }
+#kcalTotal { font-size: 1.6rem; font-family: var(--display); font-weight: 800; }
+.kmeal-head { display: flex; justify-content: space-between; margin-top: 8px; }
+.kmeal-head h3 { font-size: 0.9rem; }
+.ledger li.kcal { grid-template-columns: 1fr auto auto; }
+.today-grid { display: grid; gap: 12px; }
+.tcard { gap: 8px; }
+.tcard .env-top h3 { font-family: var(--display); font-size: 1rem; }
+.tcard .go { padding: 3px 10px; font-size: 0.85rem; color: var(--accent); border-color: var(--line); }
+.tcard .big { font-size: 1.7rem; font-family: var(--display); font-weight: 800; line-height: 1.1; }
+.tlist { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.tlist li { display: flex; justify-content: space-between; gap: 10px; align-items: center; }
+.tlist li > span:first-child { min-width: 0; overflow-wrap: anywhere; }
+.tlist label { display: flex; gap: 8px; align-items: center; cursor: pointer; }
+.addbox > summary { cursor: pointer; list-style: none; color: var(--accent); font-weight: 600; padding: 6px 0; }
+.addbox > summary::-webkit-details-marker { display: none; }
+.addbox[open] > summary { margin-bottom: 10px; }
+.addbox > form { display: grid; gap: 12px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { border-radius: 99px; padding: 6px 12px; font-size: 0.9rem; border-color: var(--accent); color: var(--accent); display: inline-flex; gap: 6px; align-items: center; }
+.chip .x { color: var(--over); font-weight: 700; }
+.inline { display: flex; gap: 8px; align-items: center; font-size: 0.9rem; }
+.inline input { width: auto; }
+.inline-field { display: flex; gap: 6px; align-items: center; font-size: 0.85rem; }
+.inline-field input { width: 6em; padding: 5px 8px; }
+.recap { display: grid; gap: 12px; }
+.recap table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.recap th { text-align: left; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; padding: 4px 0; }
+.recap td { padding: 5px 0; border-top: 1px solid var(--line); }
+.recap td.n, .recap th.n { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.up { color: var(--over); } .down { color: var(--accent); }
+.goals { display: grid; gap: 4px; }
+.goal { display: grid; gap: 6px; padding: 12px 0; border-bottom: 1px dashed var(--line); }
+.goal-move { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.goal-move input { width: 7em; padding: 5px 8px; }
+.pill.done { color: var(--accent); }
+.meals { display: grid; gap: 12px; }
+.meal { border-top: 1px dashed var(--line); padding-top: 12px; display: grid; gap: 6px; }
+.meal h3 { font-family: var(--display); font-size: 1rem; }
+.meal ol { margin: 0; padding-left: 1.3em; }
+.meal p { margin: 0; }
+.ledger li.habit { grid-template-columns: auto 1fr auto auto; }
+.check { width: 1.4em; height: 1.4em; accent-color: var(--accent); margin: 0; }
+.habit.done .what > span { text-decoration: line-through; color: var(--muted); }
+.week { display: flex; gap: 3px; }
+.week i { width: 9px; height: 9px; border-radius: 3px; background: var(--track); display: inline-block; }
+.week i.on { background: var(--accent); }
+.streak { font-size: 0.8rem; color: var(--muted); }
+.stepper { display: flex; align-items: center; gap: 4px; }
+.stepper .num { min-width: 2.2em; text-align: center; font-size: 0.9rem; }
+.stepper button { padding: 2px 9px; }
+.stepper button:disabled { opacity: 0.4; cursor: default; }
+.pricebox { display: flex; gap: 4px; align-items: center; background: none; border: 0; padding: 0; }
+.pricebox input { width: 5.5em; padding: 5px 8px; }
+h3 { margin: 0; font-size: 0.95rem; }
+/* Base reset (the Claude viewer used to supply this) */
+:root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); color-scheme: light; }
+body { margin: 0; -webkit-text-size-adjust: 100%; }
+img { max-width: 100%; }
+[hidden] { display: none !important; }
+/* Signed out: only the sign-in card shows */
+body.signed-out .tabs, body.signed-out .tabpane, body.signed-out #alert, body.signed-out #monthNav { display: none !important; }
+.auth { max-width: 420px; }
+.filebtn { display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--accent); color: var(--accent); border-radius: 8px; padding: 9px 12px; font-weight: 600; cursor: pointer; }
+.filebtn input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.filebtn:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.linkbtn { background: none; border: 0; padding: 0; color: var(--accent); text-decoration: underline; cursor: pointer; font: inherit; }
+.foot { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-size: 0.85rem; color: var(--muted); }
+textarea { font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px; width: 100%; box-sizing: border-box; min-height: 6em; resize: vertical; }
+</style>
+</head>
+<body class="signed-out">
+
+<main>
+  <header>
+    <h1>Day to Day</h1>
+    <div class="month" id="monthNav">
+      <button class="icon" id="prev" aria-label="Previous month">‹</button>
+      <span id="monthLabel"></span>
+      <button class="icon" id="next" aria-label="Next month">›</button>
+    </div>
+  </header>
+
+  <nav class="tabs" aria-label="Sections">
+    <button type="button" id="tabToday" aria-pressed="false">Today</button>
+    <button type="button" id="tabMoney" aria-pressed="true">Money</button>
+    <button type="button" id="tabFood" aria-pressed="false">Food</button>
+    <button type="button" id="tabMeals" aria-pressed="false">Meals</button>
+    <button type="button" id="tabHabits" aria-pressed="false">Habits</button>
+  </nav>
+
+  <section class="card auth" id="authPane" aria-label="Sign in">
+    <h2>Sign in</h2>
+    <p class="muted" style="margin:0">Use the same email and password on your phone and computer and your data stays in sync.</p>
+    <form class="plain" id="authForm" autocomplete="on">
+      <label><span class="label">Email</span><input id="authEmail" type="email" autocomplete="username" required></label>
+      <label><span class="label">Password</span><input id="authPass" type="password" autocomplete="current-password" minlength="6" required></label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="primary" type="submit">Sign in</button>
+        <button type="button" id="authCreate">Create my account</button>
+      </div>
+      <button type="button" class="linkbtn" id="authReset" style="justify-self:start">Forgot password?</button>
+      <div class="status" id="authStatus" role="status"></div>
+    </form>
+  </section>
+
+  <div class="notice" id="notice" hidden>You're offline or signed out. Changes will save once you're back.</div>
+  <div class="alert" id="alert" role="status" hidden></div>
+
+  <section class="tabpane" id="mealsPane" hidden aria-label="Meals">
+    <section class="card" aria-label="Calories">
+      <div class="env-top">
+        <h2>Calories</h2>
+        <div class="month">
+          <button type="button" class="icon" id="calPrev" aria-label="Previous day">‹</button>
+          <span id="calDayLabel" style="min-width:7em"></span>
+          <button type="button" class="icon" id="calNext" aria-label="Next day">›</button>
+        </div>
+      </div>
+      <div class="env-top">
+        <div><span class="big num" id="kcalTotal">0</span> <span class="muted" id="kcalOf"></span></div>
+        <label class="inline-field"><span class="muted">Daily goal</span><input id="kcalGoal" inputmode="numeric" placeholder="2000"></label>
+      </div>
+      <div class="bar" id="kcalBar"><i style="width:0"></i></div>
+      <div class="muted" id="kcalLeft"></div>
+      <form class="plain" id="kcalForm" autocomplete="off">
+        <div class="row">
+          <label><span class="label">Meal</span><select id="kcalMeal"><option value="breakfast">Breakfast</option><option value="lunch">Lunch</option><option value="dinner">Dinner</option><option value="other">Other</option></select></label>
+          <label><span class="label">What I ate</span><input id="kcalName" list="recipeNames" maxlength="60" placeholder="Turkey sandwich" required></label>
+        </div>
+        <div class="row">
+          <label><span class="label">Calories</span><input id="kcalAmt" inputmode="numeric" placeholder="450"></label>
+        </div>
+        <button class="primary" type="submit">Log food</button>
+        <div class="status" id="kcalStatus" role="status"></div>
+      </form>
+      <div id="kcalMeals" class="kmeals"></div>
+      <datalist id="recipeNames"></datalist>
+    </section>
+
+    <section class="card" aria-label="Weekly meal plan">
+      <div class="env-top">
+        <h2>This week's meals</h2>
+        <div class="month">
+          <button type="button" class="icon" id="weekPrev" aria-label="Previous week">‹</button>
+          <span id="weekLabel" style="min-width:8em"></span>
+          <button type="button" class="icon" id="weekNext" aria-label="Next week">›</button>
+        </div>
+      </div>
+      <div id="plan" class="plan"></div>
+      <div class="status" id="planStatus" role="status"></div>
+    </section>
+
+
+    <section class="card" aria-label="Saved recipes">
+      <h2 id="recipesTitle">Saved recipes</h2>
+      <div id="recipes" class="meals"></div>
+      <details class="addbox"><summary>+ Add a recipe</summary>
+        <form class="plain" id="recipeForm" autocomplete="off">
+          <label><span class="label">Recipe name</span><input id="recName" maxlength="80" placeholder="Chicken stir fry" required></label>
+          <div class="row">
+            <label><span class="label">Minutes (optional)</span><input id="recMin" inputmode="numeric" placeholder="25"></label>
+            <label><span class="label">Calories per serving (optional)</span><input id="recKcal" inputmode="numeric" placeholder="520"></label>
+          </div>
+          <label><span class="label">Ingredients, separated by commas</span><input id="recIng" placeholder="Chicken, rice, broccoli, soy sauce"></label>
+          <label><span class="label">Steps, one per line (optional)</span><textarea id="recSteps" placeholder="Cook the rice&#10;Fry the chicken&#10;Add vegetables and sauce"></textarea></label>
+          <button class="primary" type="submit">Save recipe</button>
+        </form>
+      </details>
+    </section>
+
+  </section>
+
+  <section class="tabpane" id="todayPane" hidden aria-label="Today">
+    <h2 id="todayDate"></h2>
+    <div id="todayCards" class="today-grid"></div>
+  </section>
+
+  <section class="tabpane" id="habitsPane" hidden aria-label="Habits">
+    <section class="card" aria-label="Today's habits">
+      <div class="env-top">
+        <h2 id="habitDay">Today</h2>
+        <span class="num muted" id="habitCount"></span>
+      </div>
+      <div class="bar" id="habitBar"><i style="width:0"></i></div>
+      <ul class="ledger" id="habitList"></ul>
+    </section>
+    <form class="card" id="habitForm" autocomplete="off">
+      <h2>Add a habit</h2>
+      <label><span class="label">Habit</span><input id="habitName" maxlength="40" placeholder="Drink 8 glasses of water" required></label>
+      <button class="primary" type="submit">Add habit</button>
+      <div class="status" id="habitStatus" role="status"></div>
+    </form>
+  </section>
+
+  <section class="tabpane" id="foodPane" hidden aria-label="Food">
+    <section class="card" aria-label="Shopping list">
+      <h2 id="needTitle">Shopping list</h2>
+      <ul class="ledger" id="needList"></ul>
+    </section>
+    <section class="card" aria-label="Food I have">
+      <h2 id="haveTitle">Already have</h2>
+      <ul class="ledger" id="haveList"></ul>
+    </section>
+    <form class="card" id="foodForm" autocomplete="off">
+      <h2>Add food</h2>
+      <div class="row">
+        <label><span class="label">Item</span><input id="foodName" maxlength="40" placeholder="Eggs" required></label>
+        <label><span class="label">How much (optional)</span><input id="foodQty" maxlength="20" placeholder="12, or 2 lb, or 1 gallon"></label>
+      </div>
+      <div class="row">
+        <label><span class="label">Where it goes</span><select id="foodWhere"><option value="need">Need to buy</option><option value="have">Already have</option></select></label>
+        <label><span class="label">Expires (optional)</span><input id="foodExp" type="date"></label>
+      </div>
+      <button class="primary" type="submit">Add item</button>
+      <div class="status" id="foodStatus" role="status"></div>
+    </form>
+    <section class="card" aria-label="Expiry calendar">
+      <div class="env-top">
+        <h2>Expiry calendar</h2>
+        <span class="legend"><span><i class="dot exp over"></i> Expired</span><span><i class="dot exp warn"></i> Within 3 days</span><span><i class="dot exp"></i> Later</span></span>
+      </div>
+      <div class="cal" id="foodCal"></div>
+      <h3 id="foodDayTitle"></h3>
+      <ul class="ledger" id="foodDayList"></ul>
+    </section>
+  </section>
+
+  <div class="tabpane" id="moneyPane">
+
+
+  <section class="summary" aria-label="Month summary">
+    <div class="label">Left to spend this month</div>
+    <div class="big num" id="left">$0.00</div>
+    <div class="muted num" id="leftMath"></div>
+    <div class="bar" id="totalBar"><i style="width:0"></i></div>
+    <div class="muted">Spending categories: <span class="num" id="spent">$0.00</span> spent of <span class="num" id="budget">$0.00</span> budgeted</div>
+  </section>
+
+  <section class="card" aria-label="Due soon">
+    <h2>Next 7 days</h2>
+    <ul class="ledger" id="soon"></ul>
+  </section>
+
+  <section class="card" aria-label="Paydays and bills">
+    <div class="env-top">
+      <h2>Paydays &amp; bills</h2>
+      <span class="legend"><span><i class="dot pay"></i> Payday</span><span><i class="dot bill"></i> Bill due</span></span>
+    </div>
+    <div class="cal" id="cal"></div>
+    <div class="totals" id="calTotals"></div>
+    <div id="icsBox" hidden>
+      <button type="button" id="icsBtn">Add bills to my phone's calendar</button>
+      <div class="status" id="icsStatus" role="status"></div>
+    </div>
+    <h3 id="dayTitle"></h3>
+    <ul class="ledger" id="dayList"></ul>
+    <details class="addbox"><summary>+ Add bill or payday</summary>
+<form class="plain" id="eventForm" autocomplete="off">
+      <div class="row">
+        <label><span class="label">Type</span><select id="evKind"><option value="bill">Bill due</option><option value="pay">Payday</option></select></label>
+        <label><span class="label">Name</span><input id="evName" maxlength="40" placeholder="Phone bill" required></label>
+      </div>
+      <div class="row">
+        <label><span class="label">Amount</span><input id="evAmount" inputmode="decimal" placeholder="65.00" required></label>
+        <label><span class="label">Repeats</span><select id="evRepeat">
+          <option value="none">Just once</option><option value="weekly">Every week</option>
+          <option value="biweekly">Every 2 weeks</option><option value="monthly">Every month</option>
+        </select></label>
+      </div>
+      <button class="primary" type="submit" id="evSubmit">Add</button>
+      <div class="status" id="evStatus" role="status"></div>
+    </form>
+</details>
+  </section>
+
+
+  <section class="card" aria-label="Spending categories">
+    <h2>Spending categories</h2>
+    <form class="plain" id="addForm" autocomplete="off">
+      <div class="env-top">
+        <h3 id="formTitle">Add an expense</h3>
+        <button type="button" class="small-btn" id="quickEdit" hidden>Edit quick-adds</button>
+      </div>
+      <div class="tabs" role="group" aria-label="What are you adding?">
+        <button type="button" id="modeExp" aria-pressed="true">Expense</button>
+        <button type="button" id="modeTip" aria-pressed="false">Cash tips</button>
+      </div>
+      <div class="chips" id="quickChips" aria-label="Quick-add buttons"></div>
+      <div class="row">
+        <label><span class="label">Amount</span><input id="amount" inputmode="decimal" placeholder="12.50" required></label>
+        <label id="catField"><span class="label">Category</span><select id="category" required></select></label>
+        <label id="hoursField" hidden><span class="label">Hours worked (optional)</span><input id="hours" inputmode="decimal" placeholder="6"></label>
+      </div>
+      <div class="row">
+        <label><span class="label">What for</span><input id="note" maxlength="80" placeholder="Coffee"></label>
+        <label><span class="label">Date</span><input id="date" type="date" required></label>
+      </div>
+      <label class="inline" id="quickField"><input type="checkbox" id="saveQuick"> Also save as a one-tap quick-add button</label>
+      <button class="primary" type="submit" id="addBtn">Add expense</button>
+      <div class="status" id="status" role="status"></div>
+      <details id="tipsBox" hidden>
+        <summary id="tipsSum"></summary>
+        <p class="muted" id="tipsStats" style="margin:6px 0 0"></p>
+        <ul class="ledger" id="tipsList"></ul>
+      </details>
+    </form>
+    <p class="muted" style="margin:0;font-size:0.85rem">Tap a category to see or remove its expenses.</p>
+    <div class="envelopes" id="envelopes"></div>
+  </section>
+
+  <section class="card" aria-label="Savings goals">
+    <h2>Savings goals</h2>
+    <div id="goals" class="goals"></div>
+    <details class="addbox"><summary>+ New goal</summary>
+<form class="plain" id="goalForm" autocomplete="off">
+      <div class="row">
+        <label><span class="label">Saving for</span><input id="goalName" maxlength="40" placeholder="Vacation" required></label>
+        <label><span class="label">Target amount</span><input id="goalTarget" inputmode="decimal" placeholder="1200" required></label>
+      </div>
+      <div class="row">
+        <label><span class="label">By (optional)</span><input id="goalBy" type="date"></label>
+        <span></span>
+      </div>
+      <button class="primary" type="submit">Add goal</button>
+      <div class="status" id="goalStatus" role="status"></div>
+    </form>
+</details>
+  </section>
+
+  <section class="card" aria-label="Debt payoff">
+    <div class="env-top">
+      <h2>Debt payoff</h2>
+      <label class="inline-field"><span class="muted">Extra per month</span><input id="debtExtra" inputmode="decimal" placeholder="0"></label>
+    </div>
+    <div id="debts" class="goals"></div>
+    <details class="addbox"><summary>+ Add a debt</summary>
+<form class="plain" id="debtForm" autocomplete="off">
+      <div class="row">
+        <label><span class="label">Name</span><input id="debtName" maxlength="40" placeholder="Credit card" required></label>
+        <label><span class="label">Balance owed</span><input id="debtBal" inputmode="decimal" placeholder="2500" required></label>
+      </div>
+      <div class="row">
+        <label><span class="label">Interest rate (APR %)</span><input id="debtApr" inputmode="decimal" placeholder="24.99"></label>
+        <label><span class="label">Monthly payment</span><input id="debtMin" inputmode="decimal" placeholder="75" required></label>
+      </div>
+      <button class="primary" type="submit">Add debt</button>
+      <div class="status" id="debtStatus" role="status"></div>
+    </form>
+</details>
+  </section>
+
+  <section class="card" aria-label="Month recap">
+    <h2 id="recapTitle">Month recap</h2>
+    <div id="recap" class="recap"></div>
+  </section>
+
+
+  <section class="card" id="backupBox" aria-label="Backup" hidden>
+    <h2>Backup</h2>
+    <p class="muted" style="margin:0">Save everything (expenses, spending categories, bills, goals, debts, food and habits) as an Excel file you can keep or open in any spreadsheet app.</p>
+    <button type="button" id="backupBtn" style="justify-self:start">Download backup (Excel)</button>
+    <label class="filebtn" style="justify-self:start"><input type="file" id="importFile" accept=".json,application/json"><span>Import from the old Claude app</span></label>
+    <div class="status" id="backupStatus" role="status"></div>
+  </section>
+  <div class="foot"><span id="whoami"></span><button type="button" class="linkbtn" id="signOut">Sign out</button></div>
+  </div>
+</main>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+const fmt = c => (c / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+// Money is kept in whole cents so totals never drift.
+function toCents(str) {
+  const s = String(str).replace(/[$,\s]/g, '');
+  if (!/^(\d+(\.\d{0,2})?|\.\d{1,2})$/.test(s)) return null;
+  const [w, f = ''] = s.split('.');
+  return Number(w || 0) * 100 + Number((f + '00').slice(0, 2));
+}
+console.assert(toCents('12.5') === 1250 && toCents('$1,234.56') === 123456 && toCents('.99') === 99
+  && toCents('abc') === null && toCents('1.234') === null, 'toCents self-check failed');
+
+const today = () => new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD in local time
+const STARTER = ['Rent', 'Groceries', 'Gas', 'Bills', 'Eating out', 'Fun'];
+let month = today().slice(0, 7);
+let categories = [];   // [{name, cents}]
+let expenses = [];     // this month's docs
+let prevExpenses = [], unsubPrev = null;   // last month's, for the recap and rollover
+let rollover = false;
+const openEnvs = new Set();   // envelopes the viewer has expanded, kept open across re-renders
+let budgetRef = null, expCol = null, unsubExp = null;
+
+function monthName(m) {
+  const [y, mo] = m.split('-').map(Number);
+  return new Date(y, mo - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+}
+function shiftMonth(d) {
+  const [y, mo] = month.split('-').map(Number);
+  const t = new Date(y, mo - 1 + d, 1);
+  month = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}`;
+  selDate = selFoodDate = today().startsWith(month) ? today() : month + '-01';
+  subscribeMonth(); render(); renderFood();
+}
+function barState(spent, cap) {
+  if (cap <= 0) return spent > 0 ? 'over' : '';
+  return spent > cap ? 'over' : spent >= cap * 0.85 ? 'warn' : '';
+}
+function setBar(el, spent, cap) {
+  el.className = 'bar ' + barState(spent, cap);
+  el.firstElementChild.style.width = (cap > 0 ? Math.min(100, spent / cap * 100) : spent > 0 ? 100 : 0) + '%';
+}
+
+// ---- Paydays & bills calendar ----
+let events = [];      // [{id, kind: 'pay'|'bill', name, cents, date, repeat}]
+let calRef = null;
+let selDate = today();
+const DAY = 864e5;
+const ud = s => Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10));
+const ds = t => new Date(t).toISOString().slice(0, 10);
+const addDays = (d, n) => ds(ud(d) + n * DAY);
+// Dates an event lands on within month m ('YYYY-MM'). UTC math so daylight saving can't shift a day.
+function occurrences(ev, m) {
+  const [y, mo] = m.split('-').map(Number);
+  const start = Date.UTC(y, mo - 1, 1), end = Date.UTC(y, mo, 1), s = ud(ev.date);
+  if (s >= end) return [];
+  if (ev.repeat === 'monthly') {
+    const d = ds(Date.UTC(y, mo - 1, Math.min(+ev.date.slice(8, 10), new Date(end - DAY).getUTCDate())));
+    return ud(d) >= s ? [d] : [];
+  }
+  const step = { weekly: 7, biweekly: 14 }[ev.repeat] * DAY;
+  if (!step) return s >= start ? [ev.date] : [];
+  const out = [];
+  for (let t = s + Math.max(0, Math.ceil((start - s) / step)) * step; t < end; t += step) out.push(ds(t));
+  return out;
+}
+console.assert(
+  occurrences({ date: '2026-01-31', repeat: 'monthly' }, '2026-02').join() === '2026-02-28' &&
+  occurrences({ date: '2026-10-02', repeat: 'biweekly' }, '2026-10').join() === '2026-10-02,2026-10-16,2026-10-30' &&
+  occurrences({ date: '2026-10-02', repeat: 'biweekly' }, '2026-11').join() === '2026-11-13,2026-11-27' &&
+  occurrences({ date: '2026-10-20', repeat: 'weekly' }, '2026-09').length === 0 &&
+  occurrences({ date: '2026-10-20', repeat: 'none' }, '2026-10').join() === '2026-10-20', 'occurrences self-check failed');
+
+const REPEAT_LABEL = { none: '', weekly: 'every week', biweekly: 'every 2 weeks', monthly: 'every month' };
+const shortDate = d => new Date(d + 'T12:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+const isPaid = (ev, d) => !!(ev.paid && ev.paid[d]);
+// Paid is tracked per date, so ticking one month's rent leaves the other months unpaid.
+async function togglePaid(ev, d) {
+  const paid = { ...(ev.paid || {}) };
+  if (paid[d]) delete paid[d]; else paid[d] = true;
+  try { await calRef.set({ events: events.map(e => e.id === ev.id ? { ...e, paid } : e) }); }
+  catch { status('Could not save that. Try again.', true, $('#evStatus')); }
+}
+
+// Paydays and unpaid bills from today through the next 6 days, soonest first.
+function upcomingItems() {
+  const from = today(), to = ds(ud(from) + 6 * DAY);
+  const items = [];
+  for (const m of new Set([from.slice(0, 7), to.slice(0, 7)]))
+    for (const ev of events) for (const d of occurrences(ev, m))
+      if (d >= from && d <= to && !(ev.kind === 'bill' && isPaid(ev, d))) items.push({ ev, d });
+  return items.sort((a, b) => a.d.localeCompare(b.d));
+}
+// The banner at the top: bills due soon, spending categories running out, and food going off.
+let lastCats = null;   // {month, list: [{name, spent, cap}]} from the last Money render
+function alertLines(day = today()) {
+  const lines = [];
+  const bills = upcomingItems().filter(i => i.ev.kind === 'bill');
+  const in24 = bills.filter(i => ud(i.d) - ud(day) <= DAY), in3 = bills.filter(i => ud(i.d) - ud(day) <= 3 * DAY);
+  if (in24.length) lines.push(['over', `Due within 24 hours: ${in24.map(i => `${i.ev.name} (${fmt(i.ev.cents)})`).join(', ')}`]);
+  else if (in3.length) lines.push(['warn', `Due within 3 days: ${in3.map(i => `${i.ev.name} (${fmt(i.ev.cents)})`).join(', ')}`]);
+  if (lastCats && lastCats.month === day.slice(0, 7)) {
+    const [y, m] = day.split('-').map(Number), daysLeft = new Date(y, m, 0).getDate() - Number(day.slice(8)) + 1;
+    for (const c of lastCats.list) {
+      if (c.cap <= 0) continue;
+      if (c.spent > c.cap) lines.push(['over', `${c.name}: ${fmt(c.spent - c.cap)} over budget`]);
+      else if (c.spent >= c.cap * 0.85) lines.push(['warn', `${c.name}: ${fmt(c.cap - c.spent)} left for ${daysLeft} day${daysLeft > 1 ? 's' : ''}`]);
+    }
+  }
+  const off = food.filter(f => f.status === 'have' && f.expires && ud(f.expires) - ud(day) <= DAY);
+  if (off.length) lines.push([off.some(f => f.expires < day) ? 'over' : 'warn',
+    `Food to use up: ${off.map(f => `${f.name} (${expState(f.expires)[1].toLowerCase()})`).join(', ')}`]);
+  return lines;
+}
+function renderAlerts() {
+  const banner = $('#alert'), lines = alertLines();
+  banner.hidden = !lines.length;
+  banner.classList.toggle('urgent', lines.some(l => l[0] === 'over'));
+  banner.replaceChildren(...lines.map(([, text]) => { const d = document.createElement('div'); d.textContent = text; return d; }));
+}
+
+function renderSoon() {
+  const from = today(), items = upcomingItems();
+  const list = $('#soon'); list.replaceChildren();
+  if (!items.length) { const li = document.createElement('li'); li.className = 'muted'; li.style.display = 'block'; li.textContent = 'No unpaid bills or paydays in the next 7 days.'; list.append(li); }
+  for (const { ev, d } of items) {
+    const days = Math.round((ud(d) - ud(from)) / DAY);
+    const when = days === 0 ? 'today' : days === 1 ? 'tomorrow' : `in ${days} days`;
+    const li = document.createElement('li');
+    li.innerHTML = '<span class="kind"></span><span class="what"><span></span><small></small></span><span class="num"></span><span></span>';
+    li.querySelector('.kind').className = 'kind ' + ev.kind;
+    li.querySelector('.kind').textContent = ev.kind === 'pay' ? 'Pay' : 'Bill';
+    li.querySelector('.what span').textContent = ev.name;
+    li.querySelector('.what small').textContent = `${ev.kind === 'pay' ? 'Payday' : 'Due'} ${when} · ${shortDate(d)}`;
+    li.querySelector('.num').textContent = fmt(ev.cents);
+    if (ev.kind === 'bill') {
+      // Reminder tiers: within 24 hours, within 3 days, within 7 days.
+      const tier = days <= 1 ? ['over', 'Due within 24 hours'] : days <= 3 ? ['warn', 'Due within 3 days'] : ['', 'Due this week'];
+      const p = document.createElement('span'); p.className = 'pill ' + tier[0]; p.textContent = tier[1];
+      li.querySelector('.what span').append(' ', p);
+    }
+    list.append(li);
+  }
+  renderAlerts();
+}
+
+// Month grid for the current `month`. marks(d) -> [[dotClass, label], ...]; onPick(d) when a day is tapped.
+function monthGrid(cal, selected, marks, onPick, emptyLabel) {
+  cal.replaceChildren();
+  for (const w of ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']) { const h = document.createElement('div'); h.className = 'wd'; h.textContent = w; cal.append(h); }
+  const [y, mo] = month.split('-').map(Number);
+  for (let i = new Date(y, mo - 1, 1).getDay(); i > 0; i--) cal.append(document.createElement('div'));
+  for (let n = 1, days = new Date(y, mo, 0).getDate(); n <= days; n++) {
+    const d = `${month}-${String(n).padStart(2, '0')}`, items = marks(d);
+    const b = document.createElement('button'); b.type = 'button';
+    b.className = 'day' + (d === today() ? ' today' : '');
+    b.setAttribute('aria-pressed', d === selected);
+    b.setAttribute('aria-label', `${shortDate(d)}: ${items.length ? items.map(m => m[1]).join(', ') : emptyLabel}`);
+    b.innerHTML = '<span></span><span class="dots"></span>';
+    b.firstChild.textContent = n;
+    for (const [cls] of items) { const i = document.createElement('i'); i.className = cls; b.lastChild.append(i); }
+    b.onclick = () => onPick(d);
+    cal.append(b);
+  }
+}
+
+function renderCal() {
+  renderSoon();
+  const byDay = {};
+  let pay = 0, bill = 0, unpaid = 0;
+  for (const ev of events) for (const d of occurrences(ev, month)) {
+    (byDay[d] = byDay[d] || []).push(ev);
+    if (ev.kind === 'pay') pay += ev.cents;
+    else { bill += ev.cents; if (!isPaid(ev, d)) unpaid += ev.cents; }
+  }
+  monthGrid($('#cal'), selDate,
+    d => (byDay[d] || []).map(e => ['dot ' + e.kind + (e.kind === 'bill' && isPaid(e, d) ? ' paid' : ''), e.name]),
+    d => { selDate = d; renderCal(); }, 'nothing due');
+
+  const t = $('#calTotals'); t.replaceChildren();
+  for (const [label, val, color] of [['Paid in', pay, 'var(--accent)'], ['Bills', bill, 'var(--bill)'], ['Still unpaid', unpaid, unpaid ? 'var(--bill)' : '']]) {
+    const s = document.createElement('span'); s.innerHTML = '<span class="muted"></span> <b class="num"></b>';
+    s.firstChild.textContent = label; s.lastChild.textContent = fmt(val); s.lastChild.style.color = color; t.append(s);
+  }
+
+  $('#dayTitle').textContent = new Date(selDate + 'T12:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  $('#evSubmit').textContent = `Add to ${shortDate(selDate)}`;
+  const list = $('#dayList'); list.replaceChildren();
+  const todays = byDay[selDate] || [];
+  if (!todays.length) { const li = document.createElement('li'); li.className = 'muted'; li.style.display = 'block'; li.textContent = 'No paydays or bills on this day.'; list.append(li); }
+  for (const ev of todays) {
+    const li = document.createElement('li');
+    li.innerHTML = '<span class="kind"></span><span class="what"><span></span><small></small></span><span class="num"></span><button class="del" type="button">✕</button>';
+    const kind = li.querySelector('.kind');
+    kind.className = 'kind ' + ev.kind;
+    if (ev.kind === 'pay') kind.textContent = 'Pay';
+    else {
+      const paid = isPaid(ev, selDate);
+      kind.innerHTML = '<label class="paidbox"><input type="checkbox"> Paid</label>';
+      const cb = kind.querySelector('input');
+      cb.checked = paid;
+      cb.setAttribute('aria-label', `Mark ${ev.name} paid for ${shortDate(selDate)}`);
+      cb.onchange = () => togglePaid(ev, selDate);
+      li.querySelector('.what').classList.toggle('done', paid);
+    }
+    li.querySelector('.what span').textContent = ev.name;
+    li.querySelector('.what small').textContent = REPEAT_LABEL[ev.repeat] ? `Repeats ${REPEAT_LABEL[ev.repeat]}` : '';
+    li.querySelector('.num').textContent = fmt(ev.cents);
+    const del = li.querySelector('.del');
+    del.setAttribute('aria-label', `Delete ${ev.name}`);
+    del.onclick = async () => {
+      if (!del.dataset.armed) { del.dataset.armed = '1'; del.textContent = ev.repeat === 'none' ? 'Delete' : 'Delete all repeats'; setTimeout(() => { delete del.dataset.armed; del.textContent = '✕'; }, 3000); return; }
+      try { await calRef.set({ events: events.filter(e => e.id !== ev.id) }); }
+      catch { status('Could not delete that. Try again.', true, $('#evStatus')); }
+    };
+    list.append(li);
+  }
+  return { pay, bill };
+}
+
+// ---- Phone calendar export: bills as 9am events with alerts 7 days, 3 days and 24 hours before ----
+const icsText = s => String(s).replace(/[\\;,]/g, m => '\\' + m).replace(/\n/g, '\\n');
+const icsDate = d => d.replace(/-/g, '');
+function buildIcs(list, stamp = new Date()) {
+  const now = stamp.toISOString().replace(/[-:]/g, '').slice(0, 15) + 'Z';
+  const L = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Day to Day//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH'];
+  for (const ev of list) {
+    if (ev.kind !== 'bill') continue;
+    if (ev.repeat === 'none' && isPaid(ev, ev.date)) continue;
+    const day = +ev.date.slice(8, 10);
+    L.push('BEGIN:VEVENT', `UID:${ev.id}@envelope-budget`, `DTSTAMP:${now}`,
+      `DTSTART:${icsDate(ev.date)}T090000`, `DTEND:${icsDate(ev.date)}T093000`,
+      `SUMMARY:${icsText(`${ev.name} due (${fmt(ev.cents)})`)}`);
+    // Day 29-31 bills fall on the month's last day when it's shorter, matching the app.
+    const rule = { weekly: 'FREQ=WEEKLY', biweekly: 'FREQ=WEEKLY;INTERVAL=2',
+      monthly: day > 28 ? `FREQ=MONTHLY;BYMONTHDAY=${Array.from({ length: day - 27 }, (_, i) => 28 + i).join(',')};BYSETPOS=-1` : 'FREQ=MONTHLY' }[ev.repeat];
+    if (rule) L.push(`RRULE:${rule}`);
+    for (const d of Object.keys(ev.paid || {})) if (ev.repeat !== 'none') L.push(`EXDATE:${icsDate(d)}T090000`);
+    for (const [trig, when] of [['-P7D', 'in 7 days'], ['-P3D', 'in 3 days'], ['-P1D', 'tomorrow']])
+      L.push('BEGIN:VALARM', 'ACTION:DISPLAY', `TRIGGER:${trig}`, `DESCRIPTION:${icsText(`${ev.name} is due ${when} (${fmt(ev.cents)})`)}`, 'END:VALARM');
+    L.push('END:VEVENT');
+  }
+  L.push('END:VCALENDAR');
+  return L.join('\r\n') + '\r\n';
+}
+(() => {
+  const t = buildIcs([{ id: 'a', kind: 'bill', name: 'Rent, apt', cents: 95000, date: '2026-10-31', repeat: 'monthly', paid: { '2026-10-31': true } },
+                      { id: 'b', kind: 'pay', name: 'Job', cents: 1, date: '2026-10-01', repeat: 'none' }]);
+  console.assert(t.includes('RRULE:FREQ=MONTHLY;BYMONTHDAY=28,29,30,31;BYSETPOS=-1') && t.includes('EXDATE:20261031T090000')
+    && t.includes('SUMMARY:Rent\\, apt due ($950.00)') && (t.match(/BEGIN:VALARM/g) || []).length === 3 && !t.includes('Job'), 'ics self-check failed');
+})();
+
+$('#icsBtn').onclick = async () => {
+  const el = $('#icsStatus');
+  if (!events.some(e => e.kind === 'bill')) return status('Add a bill to the calendar first.', true, el);
+  try {
+    saveFile('bills.ics', new Blob([buildIcs(events)], { type: 'text/calendar' }));
+    status('On iPhone, tap "Add All" to put your bills in Calendar.', false, el);
+  } catch (e) {
+    if (e?.code === 'declined') return status('', false, el);
+    status(e?.code === 'rate_limited' ? 'A save is already open. Finish that one first.' : 'Could not save the file. Try again.', true, el);
+  }
+};
+
+// ---- Food: shopping list and what's already in the kitchen ----
+let food = [];        // [{id, name, status: 'need'|'have'}]
+let foodRef = null;
+const TABS = ['today', 'money', 'food', 'meals', 'habits'];
+const cap = s => s[0].toUpperCase() + s.slice(1);
+function showTab(name) {
+  for (const t of TABS) {
+    $(`#${t}Pane`).hidden = t !== name;
+    $(`#tab${cap(t)}`).setAttribute('aria-pressed', t === name);
+  }
+  $('#monthNav').hidden = name === 'habits' || name === 'meals' || name === 'today';
+  if (name === 'habits') renderHabits(); // the day may have rolled over since the last render
+  if (name === 'today') renderToday();
+  scrollTo(0, 0);
+  try { localStorage.setItem('tab', name); } catch {}
+}
+for (const t of TABS) $(`#tab${cap(t)}`).onclick = () => showTab(t);
+
+async function saveFood(next, el = $('#foodStatus')) {
+  if (!foodRef) { status('Sign in to save.', true, el); return false; }
+  try { await foodRef.set({ items: next }); return true; }
+  catch { status('Could not save that. Try again.', true, el); return false; }
+}
+// "2 lb" -> [2, 'lb']; blank -> [1, '']; text with no leading number ("a bunch") -> [null, text], no steppers.
+function splitQty(q) {
+  const m = /^(\d+(?:\.\d+)?)\s*(.*)$/.exec(q || '');
+  return m ? [Number(m[1]), m[2]] : q ? [null, q] : [1, ''];
+}
+const joinQty = (n, unit) => String(Math.round(n * 100) / 100) + (unit ? ' ' + unit : '');
+console.assert(splitQty('2 lb').join() === '2,lb' && splitQty('').join() === '1,' && splitQty('a bunch')[0] === null
+  && joinQty(0.5, 'lb') === '0.5 lb' && joinQty(12, '') === '12', 'qty self-check failed');
+
+let selFoodDate = today();
+// [cssState, words] for an expiry date: expired, within 3 days, or later.
+function expState(d) {
+  const days = Math.round((ud(d) - ud(today())) / DAY);
+  if (days < 0) return ['over', 'Expired'];
+  if (days <= 3) return ['warn', days === 0 ? 'Expires today' : days === 1 ? 'Expires tomorrow' : `Expires in ${days} days`];
+  return ['', `Expires ${shortDate(d)}`];
+}
+
+function renderFoodCal() {
+  const have = food.filter(f => f.status === 'have' && f.expires);
+  monthGrid($('#foodCal'), selFoodDate,
+    d => have.filter(f => f.expires === d).map(f => ['dot exp ' + expState(d)[0], f.name]),
+    d => { selFoodDate = d; renderFoodCal(); }, 'nothing expires');
+  $('#foodDayTitle').textContent = new Date(selFoodDate + 'T12:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  const list = $('#foodDayList'); list.replaceChildren();
+  const items = have.filter(f => f.expires === selFoodDate);
+  if (!items.length) { const li = document.createElement('li'); li.className = 'muted'; li.style.display = 'block'; li.textContent = 'Nothing expires on this day.'; list.append(li); }
+  for (const f of items) {
+    const li = document.createElement('li'); li.className = 'food';
+    li.innerHTML = '<span class="muted num"></span><span class="what"></span><span></span><span></span>';
+    li.children[0].textContent = f.qty || '';
+    li.children[1].textContent = f.name;
+    const [cls, words] = expState(f.expires);
+    const p = document.createElement('span'); p.className = 'pill ' + cls; p.textContent = words;
+    li.children[2].append(p);
+    list.append(li);
+  }
+}
+
+function renderFood() {
+  renderAlerts();
+  renderToday();
+  renderFoodCal();
+  for (const [st, listId, titleId, title] of [['need', '#needList', '#needTitle', 'Shopping list'], ['have', '#haveList', '#haveTitle', 'Already have']]) {
+    const items = food.filter(f => f.status === st).sort((a, b) => a.name.localeCompare(b.name));
+    $(titleId).textContent = `${title} (${items.length})`;
+    const list = $(listId); list.replaceChildren();
+    if (!items.length) {
+      const li = document.createElement('li'); li.className = 'muted'; li.style.display = 'block';
+      li.textContent = st === 'need' ? 'Nothing to buy. Add items above, or tap "Ran out" on something you have.' : 'Nothing here yet. Tick items off your shopping list as you buy them.';
+      list.append(li);
+    }
+    for (const f of items) {
+      const li = document.createElement('li'); li.className = 'food';
+      li.innerHTML = '<span></span><span class="what"></span><button type="button" class="small-btn"></button><button class="del" type="button">✕</button>';
+      li.children[1].textContent = f.name;
+      if (st === 'have') {
+        if (f.expires) {
+          const [cls, words] = expState(f.expires);
+          if (cls) { const p = document.createElement('span'); p.className = 'pill ' + cls; p.textContent = words; li.children[1].append(' ', p); }
+        }
+        const row = document.createElement('label'); row.className = 'exprow';
+        row.innerHTML = 'Expires <input type="date">';
+        const inp = row.lastChild;
+        inp.value = f.expires || '';
+        inp.setAttribute('aria-label', `When ${f.name} expires`);
+        inp.onchange = () => saveFood(food.map(x => x.id === f.id ? { ...x, expires: inp.value || '' } : x));
+        li.children[1].append(row);
+      }
+      const [n, unit] = splitQty(f.qty);
+      if (n == null) { li.children[0].className = 'muted'; li.children[0].textContent = f.qty; }
+      else {
+        const step = li.children[0]; step.className = 'stepper';
+        step.innerHTML = '<button type="button" class="small-btn">−</button><span class="num"></span><button type="button" class="small-btn">+</button>';
+        step.children[1].textContent = joinQty(n, unit);
+        const [minus, plus] = [step.children[0], step.children[2]];
+        minus.setAttribute('aria-label', `One less ${f.name}`);
+        plus.setAttribute('aria-label', `One more ${f.name}`);
+        minus.disabled = st === 'need' && n <= 1;
+        plus.onclick = () => saveFood(food.map(x => x.id === f.id ? { ...x, qty: joinQty(n + 1, unit) } : x));
+        // Using up the last one in the kitchen puts it back on the shopping list.
+        minus.onclick = () => saveFood(food.map(x => x.id !== f.id ? x
+          : n - 1 > 0 ? { ...x, qty: joinQty(n - 1, unit) } : { ...x, status: 'need', qty: joinQty(1, unit) }));
+      }
+      const move = li.children[2];
+      move.textContent = st === 'need' ? 'Got it' : 'Ran out';
+      move.setAttribute('aria-label', st === 'need' ? `Bought ${f.name}, move to Already have` : `Out of ${f.name}, add to shopping list`);
+      // A fresh purchase clears the old expiry date; set the new one under "Already have".
+      const moveIt = () => saveFood(food.map(x => x.id !== f.id ? x : st === 'need' ? { ...x, status: 'have', expires: '' } : { ...x, status: 'need' }));
+      move.onclick = st === 'have' ? moveIt : () => {
+        // Ask what it cost, then log it as a Groceries expense. A blank price just moves the item.
+        const box = document.createElement('form'); box.className = 'pricebox';
+        box.innerHTML = '<input inputmode="decimal" placeholder="Price"><button type="submit" class="small-btn primary">Save</button>';
+        const inp = box.firstChild;
+        inp.setAttribute('aria-label', `What ${f.name} cost`);
+        box.onsubmit = async e => {
+          e.preventDefault();
+          const raw = inp.value.trim(), cents = raw ? toCents(raw) : 0, el = $('#foodStatus');
+          if (raw && !cents) return status('Enter a price like 4.99, or leave it blank.', true, el);
+          if (cents) {
+            if (!expCol) return status('Sign in to save.', true, el);
+            const date = today();
+            try { await expCol.add({ cents, category: 'Groceries', note: f.qty ? `${f.name} (${f.qty})` : f.name, date, month: date.slice(0, 7), created: Date.now() }); }
+            catch { return status('Could not log that expense. Try again.', true, el); }
+          }
+          if (await moveIt()) status(cents ? `Got ${f.name}: ${fmt(cents)} added to Groceries.` : `Got ${f.name}.`, false, el);
+        };
+        move.replaceWith(box); inp.focus();
+      };
+      const del = li.children[3];
+      del.setAttribute('aria-label', `Remove ${f.name}`);
+      del.onclick = () => saveFood(food.filter(x => x.id !== f.id));
+      list.append(li);
+    }
+  }
+}
+$('#foodForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const name = $('#foodName').value.trim(), qty = $('#foodQty').value.trim(), expires = $('#foodExp').value, where = $('#foodWhere').value, el = $('#foodStatus');
+  if (!name) return status('Type what the item is.', true, el);
+  const existing = food.find(f => f.name.toLowerCase() === name.toLowerCase());
+  // Re-adding an item moves it and updates its amount and expiry (blank fields keep the old values).
+  const next = existing ? food.map(f => f === existing ? { ...f, status: where, qty: qty || f.qty || '', expires: expires || f.expires || '' } : f)
+    : [...food, { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name, qty, expires, status: where }];
+  if (await saveFood(next, el)) {
+    $('#foodName').value = ''; $('#foodQty').value = ''; $('#foodExp').value = ''; $('#foodName').focus();
+    status(existing ? `Updated ${existing.name} in ${where === 'need' ? 'your shopping list' : 'Already have'}.` : `Added ${name}.`, false, el);
+  }
+});
+
+const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const sameName = (a, b) => a.trim().toLowerCase() === b.trim().toLowerCase();
+// Clean up a stored or typed-in recipe into the shape the page relies on.
+function toRecipe(m) {
+  const strs = a => (Array.isArray(a) ? a : []).map(String).filter(s => s.trim()).slice(0, 12);
+  return { id: m.id || newId(), name: String(m.name || 'Meal').slice(0, 80), uses: strs(m.uses), buy: strs(m.buy),
+    minutes: Number(m.minutes) > 0 ? Math.round(Number(m.minutes)) : 0, kcal: Number(m.kcal) > 0 ? Math.round(Number(m.kcal)) : 0,
+    steps: strs(m.steps).slice(0, 8) };
+}
+// Put names on the shopping list, skipping anything already in the kitchen or already on the list.
+async function addToShopping(names, el) {
+  let next = [...food], added = 0;
+  for (const name of names) {
+    const hit = next.find(f => sameName(f.name, name));
+    if (hit) continue;
+    next.push({ id: newId(), name, qty: '', expires: '', status: 'need' }); added++;
+  }
+  if (!added) return 0;
+  return (await saveFood(next, el)) ? added : 0;
+}
+function recipeCard(r, { saved }) {
+  const d = document.createElement(saved ? 'details' : 'div'); d.className = saved ? 'meal recipe' : 'meal';
+  d.innerHTML = saved ? '<summary></summary><p class="muted"></p><p></p><ol></ol><div class="meal-actions"></div>'
+    : '<h3></h3><p class="muted"></p><p></p><ol></ol><div class="meal-actions"></div>';
+  d.children[0].textContent = r.name;
+  d.children[1].textContent = [r.minutes ? `About ${r.minutes} min` : '', r.kcal ? `~${r.kcal} cal per serving` : '', r.uses.length ? `Uses: ${r.uses.join(', ')}` : ''].filter(Boolean).join(' · ');
+  d.children[2].textContent = r.buy.length ? `Need to buy: ${r.buy.join(', ')}` : 'Nothing extra to buy.';
+  for (const s of r.steps) { const li = document.createElement('li'); li.textContent = s; d.children[3].append(li); }
+  const act = d.children[4], el = $('#planStatus');
+  if (!saved) {
+    const save = document.createElement('button'); save.type = 'button'; save.className = 'small-btn primary';
+    const isSaved = () => kitchen.recipes.some(x => sameName(x.name, r.name));
+    save.textContent = isSaved() ? 'Saved' : 'Save recipe'; save.disabled = isSaved();
+    save.onclick = async () => {
+      if (await saveKitchen({ recipes: [...kitchen.recipes, { ...r, id: newId() }] }, el)) { save.textContent = 'Saved'; save.disabled = true; }
+    };
+    act.append(save);
+  }
+  if (r.buy.length) {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'small-btn';
+    b.textContent = 'Add missing items to shopping list';
+    b.onclick = async () => {
+      const n = await addToShopping(r.buy, el);
+      b.disabled = true; b.textContent = n ? `Added ${n} to shopping list` : 'Already on your lists';
+    };
+    act.append(b);
+  }
+  const a = document.createElement('a');
+  a.href = 'https://www.google.com/search?q=' + encodeURIComponent(r.name + ' recipe');
+  a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'Find recipes online';
+  act.append(a);
+  if (saved) {
+    const del = document.createElement('button'); del.type = 'button'; del.className = 'del'; del.textContent = 'Delete';
+    del.setAttribute('aria-label', `Delete recipe ${r.name}`);
+    del.onclick = () => {
+      if (!del.dataset.armed) { del.dataset.armed = '1'; del.textContent = 'Tap again to delete'; setTimeout(() => { delete del.dataset.armed; del.textContent = 'Delete'; }, 3000); return; }
+      saveKitchen({ recipes: kitchen.recipes.filter(x => x.id !== r.id) }, el);
+    };
+    act.append(del);
+  }
+  return d;
+}
+
+// ---- Kitchen: saved recipes, weekly plan, preferences (one private document) ----
+let kitchen = { recipes: [], plan: {}, prefs: {} };   // plan: {'YYYY-MM-DD': {lunch: {name, recipeId?}, dinner: {...}}}
+let kitchenRef = null;
+let planEarlierOpen = false;
+let weekStart = addDays(today(), -new Date(today() + 'T12:00').getDay()); // Sunday, like the calendars
+async function saveKitchen(patch, el) {
+  if (!kitchenRef) { status('Sign in to save.', true, el); return false; }
+  // shortcut: past weeks' plans stay in this document; prune old dates if it ever fills up.
+  try { await kitchenRef.set({ ...kitchen, ...patch }); return true; }
+  catch (e) { status(e?.code === 'quota_exceeded' ? 'Storage is full. Delete some saved recipes.' : 'Could not save that. Try again.', true, el); return false; }
+}
+function renderRecipes() {
+  const list = kitchen.recipes.map(toRecipe);
+  $('#recipesTitle').textContent = `Saved recipes (${list.length})`;
+  const box = $('#recipes');
+  if (!list.length) { const p = document.createElement('p'); p.className = 'muted'; p.textContent = 'No saved recipes yet. Tap "+ Add a recipe" to add one.'; box.replaceChildren(p); }
+  else box.replaceChildren(...list.sort((a, b) => a.name.localeCompare(b.name)).map(r => recipeCard(r, { saved: true })));
+}
+function slotEditor(slot, d, meal) {
+  const el = $('#planStatus');
+  slot.replaceChildren();
+  const lab = document.createElement('span'); lab.className = 'label'; lab.textContent = meal; slot.append(lab);
+  const sel = document.createElement('select'); sel.setAttribute('aria-label', `${meal} on ${shortDate(d)}`);
+  sel.append(new Option(kitchen.recipes.length ? 'Pick a saved recipe' : 'Type a meal below', ''));
+  for (const r of [...kitchen.recipes].sort((a, b) => a.name.localeCompare(b.name))) sel.append(new Option(r.name, r.id));
+  const inp = document.createElement('input'); inp.maxLength = 60; inp.placeholder = 'Or type a meal'; inp.setAttribute('aria-label', `Type ${meal} for ${shortDate(d)}`);
+  const ok = document.createElement('button'); ok.type = 'button'; ok.className = 'small-btn primary'; ok.textContent = 'Save';
+  const no = document.createElement('button'); no.type = 'button'; no.className = 'small-btn'; no.textContent = 'Cancel';
+  no.onclick = renderPlan;
+  ok.onclick = async () => {
+    const r = kitchen.recipes.find(x => x.id === sel.value), typed = inp.value.trim();
+    if (!r && !typed) return status('Pick a recipe or type a meal.', true, el);
+    const entry = r ? { name: r.name, recipeId: r.id } : { name: typed };
+    const day = { ...(kitchen.plan[d] || {}), [meal]: entry };
+    if (!(await saveKitchen({ plan: { ...kitchen.plan, [d]: day } }, el))) return;
+    if (r) {
+      // Whatever the recipe needs that isn't in the kitchen goes on the shopping list.
+      const missing = [...toRecipe(r).uses, ...toRecipe(r).buy].filter(n => !food.some(f => f.status === 'have' && sameName(f.name, n)));
+      const n = await addToShopping(missing, el);
+      status(n ? `Planned ${r.name}. Added ${n} item${n > 1 ? 's' : ''} to your shopping list.` : `Planned ${r.name}. You have everything.`, false, el);
+    } else status(`Planned ${typed}.`, false, el);
+  };
+  slot.append(sel, inp, ok, no); sel.focus();
+}
+function renderPlan() {
+  const end = addDays(weekStart, 6);
+  $('#weekLabel').textContent = `${shortDate(weekStart)} – ${shortDate(end)}`;
+  const box = $('#plan'); box.replaceChildren();
+  // In the current week, days already gone fold into "Earlier this week" so today is on top.
+  const past = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)).filter(d => d < today() && end >= today());
+  let earlier = null;
+  if (past.length) {
+    earlier = document.createElement('details'); earlier.className = 'addbox';
+    earlier.innerHTML = '<summary></summary>';
+    earlier.firstChild.textContent = `Earlier this week (${past.length} day${past.length > 1 ? 's' : ''})`;
+    earlier.open = planEarlierOpen;
+    earlier.ontoggle = () => { planEarlierOpen = earlier.open; };
+    box.append(earlier);
+  }
+  for (let i = 0; i < 7; i++) {
+    const d = addDays(weekStart, i);
+    const row = document.createElement('div'); row.className = 'planday' + (d === today() ? ' today' : '');
+    row.innerHTML = '<div class="pd"></div><div class="slots"></div>';
+    row.firstChild.textContent = new Date(d + 'T12:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    for (const meal of ['lunch', 'dinner']) {
+      const slot = document.createElement('div'); slot.className = 'slot';
+      const entry = (kitchen.plan[d] || {})[meal];
+      const lab = document.createElement('span'); lab.className = 'label'; lab.textContent = meal; slot.append(lab);
+      if (entry) {
+        const nm = document.createElement('span'); nm.className = 'meal-name'; nm.textContent = entry.name; slot.append(nm);
+        const x = document.createElement('button'); x.type = 'button'; x.className = 'del'; x.textContent = '✕';
+        x.setAttribute('aria-label', `Clear ${meal} on ${shortDate(d)}`);
+        x.onclick = () => { const day = { ...(kitchen.plan[d] || {}) }; delete day[meal]; saveKitchen({ plan: { ...kitchen.plan, [d]: day } }, $('#planStatus')); };
+        slot.append(x);
+      } else {
+        const add = document.createElement('button'); add.type = 'button'; add.className = 'addslot'; add.textContent = `+ Add ${meal}`;
+        add.onclick = () => slotEditor(slot, d, meal);
+        slot.append(add);
+      }
+      row.lastChild.append(slot);
+    }
+    (earlier && past.includes(d) ? earlier : box).append(row);
+  }
+}
+function renderKitchen() {
+  renderToday();
+  renderRecipes(); renderPlan();
+  $('#recipeNames').replaceChildren(...kitchen.recipes.map(r => new Option(r.name)));
+}
+$('#weekPrev').onclick = () => { weekStart = addDays(weekStart, -7); renderPlan(); };
+$('#weekNext').onclick = () => { weekStart = addDays(weekStart, 7); renderPlan(); };
+// ---- Savings goals ----
+let goals = [];   // [{id, name, target (cents), by ('YYYY-MM-DD' or ''), log: [{date, cents}]}]  cents < 0 = taken out
+let goalRef = null;
+const savedOf = g => (g.log || []).reduce((a, x) => a + x.cents, 0);
+// Paydays on the calendar from `from` through `to`, both included.
+function paydaysBetween(list, from, to) {
+  let n = 0;
+  for (let m = from.slice(0, 7); m <= to.slice(0, 7); m = ds(Date.UTC(+m.slice(0, 4), +m.slice(5, 7), 1)).slice(0, 7))
+    for (const ev of list) if (ev.kind === 'pay') for (const d of occurrences(ev, m)) if (d >= from && d <= to) n++;
+  return n;
+}
+console.assert(paydaysBetween([{ kind: 'pay', date: '2026-10-02', repeat: 'biweekly' }], '2026-10-14', '2026-12-31') === 6
+  && paydaysBetween([{ kind: 'pay', date: '2026-10-02', repeat: 'biweekly' }], '2027-01-01', '2026-12-31') === 0, 'paydays self-check failed');
+
+async function saveGoals(next, el = $('#goalStatus')) {
+  if (!goalRef) { status('Sign in to save.', true, el); return false; }
+  try { await goalRef.set({ list: next }); return true; }
+  catch { status('Could not save that. Try again.', true, el); return false; }
+}
+function goalPlan(g) {
+  const left = g.target - savedOf(g);
+  if (left <= 0) return 'Goal reached.';
+  if (!g.by) return `${fmt(left)} to go.`;
+  if (g.by < today()) return `${fmt(left)} to go. The date has passed; set a new one by adding the goal again.`;
+  const n = paydaysBetween(events, today(), g.by);
+  if (n) return `${fmt(left)} to go by ${shortDate(g.by)}: save ${fmt(Math.ceil(left / n))} per paycheck (${n} payday${n > 1 ? 's' : ''} left).`;
+  const months = Math.max(1, Math.ceil((ud(g.by) - ud(today())) / (30.44 * DAY)));
+  return `${fmt(left)} to go by ${shortDate(g.by)}: about ${fmt(Math.ceil(left / months))} a month. Add your paydays to see it per paycheck.`;
+}
+function renderGoals() {
+  const box = $('#goals'); box.replaceChildren();
+  if (!goals.length) { const p = document.createElement('p'); p.className = 'muted'; p.textContent = 'No goals yet. Tap "+ New goal" to add one, like "Vacation, $1,200 by March".'; box.append(p); }
+  for (const g of goals) {
+    const saved = savedOf(g), d = document.createElement('div'); d.className = 'goal';
+    d.innerHTML = '<div class="env-top"><span class="env-name"></span><span class="num muted"></span></div><div class="bar"><i></i></div><div class="muted plan-line"></div>'
+      + '<div class="goal-move"><input inputmode="decimal" placeholder="Amount"><button type="button" class="small-btn primary">Add</button><button type="button" class="small-btn">Take out</button><button type="button" class="del">✕</button></div>';
+    d.querySelector('.env-name').textContent = g.name;
+    if (saved >= g.target) { const p = document.createElement('span'); p.className = 'pill done'; p.textContent = 'Done'; d.querySelector('.env-name').append(' ', p); }
+    d.querySelector('.num').textContent = `${fmt(saved)} / ${fmt(g.target)}`;
+    d.querySelector('.bar i').style.width = Math.min(100, Math.max(0, saved / g.target * 100)) + '%';
+    d.querySelector('.plan-line').textContent = goalPlan(g);
+    const [inp, add, take, del] = d.querySelector('.goal-move').children;
+    inp.setAttribute('aria-label', `Amount for ${g.name}`);
+    const move = async sign => {
+      const el = $('#goalStatus'), cents = toCents(inp.value);
+      if (!cents) return status('Enter an amount like 50.', true, el);
+      if (sign < 0 && cents > saved) return status(`You only have ${fmt(saved)} saved for ${g.name}.`, true, el);
+      const entry = { date: today(), cents: sign * cents };
+      if (await saveGoals(goals.map(x => x.id === g.id ? { ...x, log: [...(x.log || []), entry] } : x), el))
+        status(sign > 0 ? `Saved ${fmt(cents)} toward ${g.name}.` : `Took ${fmt(cents)} out of ${g.name}.`, false, el);
+    };
+    add.onclick = () => move(1); take.onclick = () => move(-1);
+    del.setAttribute('aria-label', `Delete goal ${g.name}`);
+    del.onclick = () => {
+      if (!del.dataset.armed) { del.dataset.armed = '1'; del.textContent = 'Delete goal'; setTimeout(() => { delete del.dataset.armed; del.textContent = '✕'; }, 3000); return; }
+      saveGoals(goals.filter(x => x.id !== g.id));
+    };
+    box.append(d);
+  }
+}
+$('#goalForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const el = $('#goalStatus'), name = $('#goalName').value.trim(), target = toCents($('#goalTarget').value), by = $('#goalBy').value;
+  if (!name) return status('Name the goal, like "Vacation".', true, el);
+  if (!target) return status('Enter a target like 1200.', true, el);
+  const hit = goals.find(g => sameName(g.name, name));
+  // Adding a goal with an existing name updates its target and date, keeping what's saved.
+  const next = hit ? goals.map(g => g === hit ? { ...g, target, by } : g) : [...goals, { id: newId(), name, target, by, log: [] }];
+  if (await saveGoals(next, el)) {
+    $('#goalName').value = ''; $('#goalTarget').value = ''; $('#goalBy').value = '';
+    status(hit ? `Updated ${hit.name}.` : `Added ${name}.`, false, el);
+  }
+});
+
+function prevMonthOf(m) {
+  const [y, mo] = m.split('-').map(Number), t = new Date(y, mo - 2, 1);
+  return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}`;
+}
+console.assert(prevMonthOf('2026-01') === '2025-12' && prevMonthOf('2026-10') === '2026-09', 'prevMonth self-check failed');
+
+// ---- Quick-add buttons ----
+let quick = [];      // [{id, label, cents, category}]
+let quickRef = null, quickEditing = false;
+async function saveQuick(next) {
+  if (!quickRef) { status('Sign in to save.', true); return false; }
+  try { await quickRef.set({ list: next }); return true; } catch { status('Could not save that. Try again.', true); return false; }
+}
+function renderQuick() {
+  const box = $('#quickChips'); box.replaceChildren();
+  $('#quickEdit').hidden = !quick.length;
+  $('#quickEdit').textContent = quickEditing ? 'Done editing' : 'Edit quick-adds';
+  for (const q of quick) {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'chip';
+    b.innerHTML = '<span></span><span class="num"></span>';
+    b.firstChild.textContent = q.label; b.children[1].textContent = fmt(q.cents);
+    if (quickEditing) {
+      const x = document.createElement('span'); x.className = 'x'; x.textContent = '✕'; b.append(x);
+      b.setAttribute('aria-label', `Remove quick-add ${q.label}`);
+      b.onclick = () => saveQuick(quick.filter(z => z.id !== q.id));
+    } else {
+      b.setAttribute('aria-label', `Add ${q.label}, ${fmt(q.cents)}, today`);
+      b.onclick = async () => {
+        if (!expCol) return status('Sign in to save.', true);
+        const date = today();
+        try {
+          const ref = await expCol.add({ cents: q.cents, category: q.category, note: q.label === q.category ? '' : q.label, date, month: date.slice(0, 7), created: Date.now() });
+          const el = $('#status'); el.classList.remove('err');
+          el.textContent = `Added ${q.label} ${fmt(q.cents)}. `;
+          const undo = document.createElement('button'); undo.type = 'button'; undo.className = 'small-btn'; undo.textContent = 'Undo';
+          undo.onclick = async () => { try { await ref.delete(); status(`Removed ${q.label}.`); } catch { status('Could not undo. Delete it from the list below.', true); } };
+          el.append(undo);
+        } catch { status('Could not save that expense. Try again.', true); }
+      };
+    }
+    box.append(b);
+  }
+}
+$('#quickEdit').onclick = () => { quickEditing = !quickEditing; renderQuick(); };
+
+// ---- Debt payoff ----
+let debts = [], debtExtra = 0;   // debts: [{id, name, balance (cents), apr (%), payment (cents), log: [{date, cents}]}]
+let debtRef = null;
+// Months to pay off `balance` at `apr`% paying `payment` a month; Infinity if the payment doesn't cover the interest.
+function payoff(balance, apr, payment) {
+  const r = apr / 1200;
+  if (balance <= 0) return { months: 0, interest: 0 };
+  if (payment <= balance * r) return { months: Infinity, interest: Infinity };
+  const months = r ? Math.ceil(-Math.log(1 - r * balance / payment) / Math.log(1 + r)) : Math.ceil(balance / payment);
+  // Walk the schedule for exact interest (at most a few hundred steps).
+  let b = balance, interest = 0;
+  for (let i = 0; i < months && b > 0; i++) { const int = Math.round(b * r); interest += int; b = b + int - payment; }
+  return { months, interest };
+}
+console.assert(payoff(100000, 0, 10000).months === 10 && payoff(100000, 24, 2000).months === Infinity
+  && payoff(500000, 18, 20000).months === 32, 'payoff self-check failed');
+const monthsLabel = n => n >= 12 ? `${Math.floor(n / 12)} yr${n >= 24 ? 's' : ''}${n % 12 ? ` ${n % 12} mo` : ''}` : `${n} mo`;
+function freeDate(months) { const t = new Date(); t.setMonth(t.getMonth() + months); return t.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }); }
+
+async function saveDebts(patch, el = $('#debtStatus')) {
+  if (!debtRef) { status('Sign in to save.', true, el); return false; }
+  try { await debtRef.set({ list: debts, extra: debtExtra, ...patch }); return true; }
+  catch { status('Could not save that. Try again.', true, el); return false; }
+}
+function renderDebts() {
+  const box = $('#debts'); box.replaceChildren();
+  if (document.activeElement !== $('#debtExtra')) $('#debtExtra').value = debtExtra ? (debtExtra / 100).toFixed(2) : '';
+  if (!debts.length) { const p = document.createElement('p'); p.className = 'muted'; p.textContent = 'No debts added. If you have a credit card or loan, tap "+ Add a debt" to see when you\'ll be debt-free.'; box.append(p); return; }
+  // Extra money goes to the highest-interest debt first (the "avalanche" method saves the most interest).
+  const target = [...debts].filter(d => d.balance > 0).sort((a, b) => b.apr - a.apr)[0];
+  for (const d of debts) {
+    const paid = (d.log || []).reduce((a, x) => a + x.cents, 0), start = d.balance + paid;
+    const base = payoff(d.balance, d.apr, d.payment);
+    const el = document.createElement('div'); el.className = 'goal';
+    el.innerHTML = '<div class="env-top"><span class="env-name"></span><span class="num muted"></span></div><div class="bar"><i></i></div><div class="muted plan-line"></div>'
+      + '<div class="goal-move"><input inputmode="decimal" placeholder="Amount"><button type="button" class="small-btn primary">Log payment</button><button type="button" class="del">✕</button></div>';
+    el.querySelector('.env-name').textContent = d.name;
+    if (d.balance <= 0) { const p = document.createElement('span'); p.className = 'pill done'; p.textContent = 'Paid off'; el.querySelector('.env-name').append(' ', p); }
+    el.querySelector('.num').textContent = `${fmt(d.balance)} left · ${d.apr}% APR`;
+    el.querySelector('.bar i').style.width = (start ? Math.min(100, paid / start * 100) : 100) + '%';
+    let line;
+    if (d.balance <= 0) line = 'Debt-free on this one.';
+    else if (base.months === Infinity) line = `${fmt(d.payment)} a month doesn't cover the interest, so this never gets paid off. Pay at least ${fmt(Math.ceil(d.balance * d.apr / 1200) + 100)} a month.`;
+    else {
+      line = `Paying ${fmt(d.payment)} a month: debt-free in ${monthsLabel(base.months)} (${freeDate(base.months)}), ${fmt(base.interest)} in interest.`;
+      if (debtExtra && d === target) {
+        const fast = payoff(d.balance, d.apr, d.payment + debtExtra);
+        line += ` With ${fmt(debtExtra)} extra: ${monthsLabel(fast.months)}, saving ${fmt(base.interest - fast.interest)}.`;
+      }
+    }
+    el.querySelector('.plan-line').textContent = line;
+    const [inp, pay, del] = el.querySelector('.goal-move').children;
+    inp.setAttribute('aria-label', `Payment toward ${d.name}`);
+    pay.onclick = async () => {
+      const cents = toCents(inp.value), st = $('#debtStatus');
+      if (!cents) return status('Enter a payment like 75.', true, st);
+      const amt = Math.min(cents, d.balance);
+      if (await saveDebts({ list: debts.map(x => x.id === d.id ? { ...x, balance: x.balance - amt, log: [...(x.log || []), { date: today(), cents: amt }] } : x) }))
+        status(`Logged ${fmt(amt)} toward ${d.name}.`, false, st);
+    };
+    del.setAttribute('aria-label', `Delete debt ${d.name}`);
+    del.onclick = () => {
+      if (!del.dataset.armed) { del.dataset.armed = '1'; del.textContent = 'Delete'; setTimeout(() => { delete del.dataset.armed; del.textContent = '✕'; }, 3000); return; }
+      saveDebts({ list: debts.filter(x => x.id !== d.id) });
+    };
+    box.append(el);
+  }
+}
+$('#debtExtra').onchange = () => {
+  const raw = $('#debtExtra').value.trim(), cents = raw ? toCents(raw) : 0;
+  if (cents == null) return status('Enter the extra as an amount like 50.', true, $('#debtStatus'));
+  saveDebts({ extra: cents });
+};
+$('#debtForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const el = $('#debtStatus'), name = $('#debtName').value.trim(), balance = toCents($('#debtBal').value), payment = toCents($('#debtMin').value);
+  const aprRaw = $('#debtApr').value.trim().replace('%', ''), apr = aprRaw ? Number(aprRaw) : 0;
+  if (!name) return status('Name the debt, like "Credit card".', true, el);
+  if (!balance) return status('Enter what you owe, like 2500.', true, el);
+  if (!(apr >= 0 && apr < 100)) return status('Enter the interest rate as a number like 24.99.', true, el);
+  if (!payment) return status('Enter your monthly payment, like 75.', true, el);
+  if (await saveDebts({ list: [...debts, { id: newId(), name, balance, apr, payment, log: [] }] }, el)) {
+    for (const id of ['#debtName', '#debtBal', '#debtApr', '#debtMin']) $(id).value = '';
+    status(`Added ${name}. Tip: add the monthly payment as a bill on the calendar so it's in your budget.`, false, el);
+  }
+});
+
+// ---- Month recap ----
+function renderRecap({ spentBy, prevSpentBy, names, totalSpent, prevTotal, savedThisMonth, tipsTotal }) {
+  const prevName = monthName(prevMonthOf(month)).split(' ')[0];
+  $('#recapTitle').textContent = `${monthName(month).split(' ')[0]} recap`;
+  const box = $('#recap'); box.replaceChildren();
+  if (!expenses.length && !prevExpenses.length) { const p = document.createElement('p'); p.className = 'muted'; p.textContent = 'Your recap fills in once you log some expenses.'; box.append(p); return; }
+  const diff = totalSpent - prevTotal;
+  const head = document.createElement('p'); head.style.margin = '0';
+  head.innerHTML = 'Spent <b class="num"></b>. <span></span>';
+  head.children[0].textContent = fmt(totalSpent);
+  head.children[1].textContent = !prevTotal ? `Nothing logged in ${prevName} to compare.`
+    : diff === 0 ? `Same as ${prevName}.` : `${fmt(Math.abs(diff))} ${diff > 0 ? 'more' : 'less'} than ${prevName}.`;
+  head.children[1].className = diff > 0 && prevTotal ? 'up' : diff < 0 ? 'down' : '';
+  box.append(head);
+
+  const allNames = [...new Set([...names, ...Object.keys(prevSpentBy)])].filter(n => spentBy[n] || prevSpentBy[n]);
+  if (allNames.length) {
+    const wrap = document.createElement('div'); wrap.style.overflowX = 'auto';
+    const t = document.createElement('table');
+    t.innerHTML = '<thead><tr><th>Category</th><th class="n"></th><th class="n"></th><th class="n">Change</th></tr></thead><tbody></tbody>';
+    t.querySelectorAll('th')[1].textContent = prevName; t.querySelectorAll('th')[2].textContent = monthName(month).split(' ')[0];
+    for (const n of allNames) {
+      const a = prevSpentBy[n] || 0, b = spentBy[n] || 0, tr = document.createElement('tr');
+      tr.innerHTML = '<td></td><td class="n"></td><td class="n"></td><td class="n"></td>';
+      tr.children[0].textContent = n; tr.children[1].textContent = fmt(a); tr.children[2].textContent = fmt(b);
+      tr.children[3].textContent = b === a ? '—' : `${b > a ? '+' : '−'}${fmt(Math.abs(b - a))}`;
+      tr.children[3].className = 'n ' + (b > a ? 'up' : b < a ? 'down' : '');
+      t.tBodies[0].append(tr);
+    }
+    wrap.append(t); box.append(wrap);
+  }
+  const top = [...expenses].sort((a, b) => b.cents - a.cents).slice(0, 3);
+  const extras = [
+    top.length ? `Biggest: ${top.map(e => `${e.note || e.category} ${fmt(e.cents)}`).join(', ')}.` : '',
+    tipsTotal ? `Made ${fmt(tipsTotal)} in cash tips.` : '',
+    savedThisMonth ? `Saved ${fmt(savedThisMonth)} toward your goals.` : '',
+  ];
+  const best = habits.list.map(h => [h.name, streak(h.id, habits.done)]).sort((a, b) => b[1] - a[1])[0];
+  if (best && best[1]) extras.push(`Best habit streak: ${best[0]}, ${best[1]} day${best[1] > 1 ? 's' : ''}.`);
+  for (const s of extras.filter(Boolean)) { const p = document.createElement('p'); p.className = 'muted'; p.style.margin = '0'; p.textContent = s; box.append(p); }
+}
+
+// ---- Backup to Excel ----
+$('#backupBtn').onclick = async () => {
+  const el = $('#backupStatus');
+  try {
+    if (!window.XLSX || !expCol) return status('Sign in to make a backup.', true, el);
+    status('Gathering your data…', false, el);
+    const all = (await expCol.get()).docs.map(d => d.data()).sort((a, b) => a.date.localeCompare(b.date));
+    const allTips = (await tipCol.get()).docs.map(d => d.data()).sort((a, b) => a.date.localeCompare(b.date));
+    const money = c => Math.round(c) / 100;
+    const sheets = {
+      Expenses: all.map(e => ({ Date: e.date, Category: e.category, Note: e.note || '', Amount: money(e.cents) })),
+      'Cash tips': allTips.map(t => ({ Date: t.date, Note: t.note || '', Amount: money(t.cents), Hours: t.hours || '', 'Per hour': t.hours ? money(t.cents / t.hours) : '' })),
+      'Spending categories': categories.map(c => ({ Category: c.name, 'Monthly budget': money(c.cents) })),
+      'Bills & paydays': events.map(e => ({ Type: e.kind === 'pay' ? 'Payday' : 'Bill', Name: e.name, Amount: money(e.cents), 'First date': e.date, Repeats: REPEAT_LABEL[e.repeat] || 'once' })),
+      'Savings goals': goals.flatMap(g => [{ Goal: g.name, Date: '', Amount: money(g.target), Note: `Target${g.by ? ' by ' + g.by : ''}` },
+        ...(g.log || []).map(x => ({ Goal: g.name, Date: x.date, Amount: money(x.cents), Note: x.cents < 0 ? 'Taken out' : 'Saved' }))]),
+      Debts: debts.flatMap(d => [{ Debt: d.name, Date: '', Amount: money(d.balance), Note: `Balance now · ${d.apr}% APR · ${fmt(d.payment)}/month` },
+        ...(d.log || []).map(x => ({ Debt: d.name, Date: x.date, Amount: money(x.cents), Note: 'Payment' }))]),
+      Food: food.map(f => ({ Item: f.name, Amount: f.qty || '', List: f.status === 'need' ? 'Shopping list' : 'Already have', Expires: f.expires || '' })),
+      Calories: Object.entries(kcal.days).sort().flatMap(([d, xs]) => xs.map(x => ({ Date: d, Meal: x.meal, Food: x.name, Calories: x.kcal }))),
+      Habits: habits.list.map(h => ({ Habit: h.name, 'Current streak (days)': streak(h.id, habits.done), 'Days done': Object.values(habits.done).filter(ids => ids.includes(h.id)).length })),
+    };
+    const wb = XLSX.utils.book_new();
+    for (const [name, rows] of Object.entries(sheets)) XLSX.utils.book_append_sheet(wb, rows.length ? XLSX.utils.json_to_sheet(rows) : XLSX.utils.aoa_to_sheet([['Nothing here yet']]), name);
+    const data = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+    saveFile(`day-to-day-backup-${today()}.xlsx`, new Blob([data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+    status('Backup saved.', false, el);
+  } catch (e) {
+    if (e?.code === 'declined') return status('', false, el);
+    status(e?.code === 'rate_limited' ? 'A save is already open. Finish that one first.' : 'Could not make the backup. Try again.', true, el);
+  }
+};
+
+// ---- Calories eaten per day, by meal ----
+let kcal = { goal: 0, days: {} };   // days: {'YYYY-MM-DD': [{id, meal: 'breakfast'|'lunch'|'dinner'|'other', name, kcal}]}
+let kcalRef = null, kcalDay = today();
+const KMEALS = [['breakfast', 'Breakfast'], ['lunch', 'Lunch'], ['dinner', 'Dinner'], ['other', 'Other']];
+const kcalSum = d => (kcal.days[d] || []).reduce((a, x) => a + x.kcal, 0);
+async function saveKcal(patch, el = $('#kcalStatus')) {
+  if (!kcalRef) { status('Sign in to save.', true, el); return false; }
+  // shortcut: every day's log lives in one document (years of normal use fit); prune old days if it ever fills.
+  try { await kcalRef.set({ ...kcal, ...patch }); return true; }
+  catch { status('Could not save that. Try again.', true, el); return false; }
+}
+function renderKcal() {
+  renderToday();
+  const d = kcalDay, total = kcalSum(d), goal = kcal.goal;
+  $('#calDayLabel').textContent = d === today() ? 'Today' : new Date(d + 'T12:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  $('#calNext').disabled = d >= today();
+  $('#kcalTotal').textContent = total.toLocaleString('en-US');
+  $('#kcalOf').textContent = goal ? `of ${goal.toLocaleString('en-US')} cal` : 'cal';
+  if (document.activeElement !== $('#kcalGoal')) $('#kcalGoal').value = goal || '';
+  setBar($('#kcalBar'), total, goal);
+  const week = Array.from({ length: 7 }, (_, i) => kcalSum(addDays(d, -i))).filter(n => n > 0);
+  const avg = week.length ? Math.round(week.reduce((a, n) => a + n, 0) / week.length) : 0;
+  $('#kcalLeft').textContent = [
+    goal ? (total <= goal ? `${(goal - total).toLocaleString('en-US')} cal left` : `${(total - goal).toLocaleString('en-US')} cal over your goal`) : 'Set a daily goal to see what\'s left.',
+    avg ? `7-day average: ${avg.toLocaleString('en-US')} cal` : '',
+  ].filter(Boolean).join(' · ');
+  const box = $('#kcalMeals'); box.replaceChildren();
+  const items = kcal.days[d] || [];
+  if (!items.length) { const p = document.createElement('p'); p.className = 'muted'; p.style.margin = '0'; p.textContent = d === today() ? 'Nothing logged yet today.' : 'Nothing logged this day.'; box.append(p); }
+  for (const [key, label] of KMEALS) {
+    const mine = items.filter(x => x.meal === key);
+    if (!mine.length) continue; // only meals with food logged
+    const head = document.createElement('div'); head.className = 'kmeal-head';
+    head.innerHTML = '<h3></h3><span class="num muted"></span>';
+    head.children[0].textContent = label; head.children[1].textContent = `${mine.reduce((a, x) => a + x.kcal, 0).toLocaleString('en-US')} cal`;
+    const ul = document.createElement('ul'); ul.className = 'ledger';
+    for (const x of mine) {
+      const li = document.createElement('li'); li.className = 'kcal';
+      li.innerHTML = '<span class="what"></span><span class="num"></span><button class="del" type="button">✕</button>';
+      li.children[0].textContent = x.name; li.children[1].textContent = `${x.kcal.toLocaleString('en-US')} cal`;
+      li.children[2].setAttribute('aria-label', `Remove ${x.name}`);
+      li.children[2].onclick = () => saveKcal({ days: { ...kcal.days, [d]: items.filter(y => y.id !== x.id) } });
+      ul.append(li);
+    }
+    box.append(head, ul);
+  }
+}
+$('#calPrev').onclick = () => { kcalDay = addDays(kcalDay, -1); renderKcal(); };
+$('#calNext').onclick = () => { if (kcalDay < today()) { kcalDay = addDays(kcalDay, 1); renderKcal(); } };
+$('#kcalGoal').onchange = () => {
+  const n = parseInt($('#kcalGoal').value, 10);
+  if ($('#kcalGoal').value.trim() && !(n > 0 && n < 20000)) return status('Enter a daily goal like 2000.', true);
+  saveKcal({ goal: n || 0 });
+};
+// Picking a saved recipe from the suggestions fills in its calories.
+$('#kcalName').oninput = () => {
+  const r = kitchen.recipes.find(x => sameName(x.name, $('#kcalName').value));
+  if (r && r.kcal && !$('#kcalAmt').value) $('#kcalAmt').value = r.kcal;
+};
+$('#kcalForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const el = $('#kcalStatus'), name = $('#kcalName').value.trim(), n = parseInt($('#kcalAmt').value, 10);
+  if (!name) return status('Type what you ate.', true, el);
+  if (!(n > 0 && n < 10000)) return status('Enter the calories, like 450.', true, el);
+  const entry = { id: newId(), meal: $('#kcalMeal').value, name, kcal: n };
+  if (await saveKcal({ days: { ...kcal.days, [kcalDay]: [...(kcal.days[kcalDay] || []), entry] } }, el)) {
+    $('#kcalName').value = ''; $('#kcalAmt').value = '';
+    status(`Logged ${name}, ${n} cal.`, false, el);
+  }
+});
+// Default the meal to the time of day.
+{ const h = new Date().getHours(); $('#kcalMeal').value = h >= 4 && h < 11 ? 'breakfast' : h >= 11 && h < 16 ? 'lunch' : h >= 16 && h < 22 ? 'dinner' : 'other'; }
+
+// ---- Today: one screen with what matters today, from every tab ----
+let lastMoney = null;   // {month, left, tipsTotal} from the last Money render
+function toggleHabit(id, on, day = today()) {
+  const ids = new Set(habits.done[day] || []);
+  if (on) ids.add(id); else ids.delete(id);
+  return saveHabits({ ...habits, done: { ...habits.done, [day]: [...ids] } });
+}
+function goTo(tab, focusId) {
+  showTab(tab);
+  const el = focusId && $(focusId);
+  if (el) { el.scrollIntoView({ block: 'center' }); el.focus({ preventScroll: true }); }
+}
+function tcard(title, actionLabel, onAction) {
+  const c = document.createElement('section'); c.className = 'card tcard'; c.setAttribute('aria-label', title);
+  c.innerHTML = '<div class="env-top"><h3></h3><button type="button" class="small-btn go"></button></div>';
+  c.querySelector('h3').textContent = title;
+  c.querySelector('.go').textContent = actionLabel; c.querySelector('.go').onclick = onAction;
+  return c;
+}
+function tline(text, cls) { const p = document.createElement('p'); p.style.margin = '0'; if (cls) p.className = cls; p.textContent = text; return p; }
+function tlist(rows) {
+  const ul = document.createElement('ul'); ul.className = 'tlist';
+  for (const [left, right, cls] of rows) {
+    const li = document.createElement('li'); li.innerHTML = '<span></span><span class="num"></span>';
+    li.children[0].textContent = left; li.children[1].textContent = right || ''; if (cls) li.children[1].className = 'num ' + cls;
+    ul.append(li);
+  }
+  return ul;
+}
+function renderToday() {
+  const day = today(), box = $('#todayCards');
+  if (!box) return;
+  $('#todayDate').textContent = new Date(day + 'T12:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  box.replaceChildren();
+
+  // Money
+  const money = tcard('Money', 'Add expense', () => goTo('money', '#amount'));
+  if (lastMoney && lastMoney.month === day.slice(0, 7)) {
+    const big = tline(fmt(lastMoney.left), 'big num'); if (lastMoney.left < 0) big.style.color = 'var(--over)';
+    money.append(big, tline(`left to spend this month${lastMoney.tipsTotal ? `, including ${fmt(lastMoney.tipsTotal)} in tips` : ''}`, 'muted'));
+  } else money.append(tline('Open Money and go to this month to see what\'s left.', 'muted'));
+  box.append(money);
+
+  // Bills and paydays
+  const soon = upcomingItems();
+  const bills = tcard('Next 7 days', 'Calendar', () => goTo('money'));
+  bills.append(soon.length ? tlist(soon.map(({ ev, d }) => {
+    const n = Math.round((ud(d) - ud(day)) / DAY), when = n === 0 ? 'today' : n === 1 ? 'tomorrow' : `in ${n} days`;
+    return [`${ev.kind === 'pay' ? 'Payday' : ev.name} · ${when}`, `${ev.kind === 'pay' ? '+' : ''}${fmt(ev.cents)}`, ev.kind === 'pay' ? 'down' : n <= 1 ? 'up' : ''];
+  })) : tline('No unpaid bills or paydays this week.', 'muted'));
+  box.append(bills);
+
+  // Calories
+  const eaten = kcalSum(day), goal = kcal.goal;
+  const cal = tcard('Calories', 'Log food', () => goTo('meals', '#kcalName'));
+  cal.append(tline(goal ? `${eaten.toLocaleString('en-US')} of ${goal.toLocaleString('en-US')} cal` : `${eaten.toLocaleString('en-US')} cal eaten`, 'big num'));
+  if (goal) { const bar = document.createElement('div'); bar.className = 'bar'; bar.innerHTML = '<i></i>'; setBar(bar, eaten, goal); cal.append(bar);
+    cal.append(tline(eaten <= goal ? `${(goal - eaten).toLocaleString('en-US')} cal left` : `${(eaten - goal).toLocaleString('en-US')} cal over`, 'muted')); }
+  box.append(cal);
+
+  // Meals planned today
+  const plan = kitchen.plan[day] || {};
+  const meals = tcard('Meals today', 'Plan', () => goTo('meals'));
+  meals.append(plan.lunch || plan.dinner ? tlist([['Lunch', plan.lunch?.name || '—'], ['Dinner', plan.dinner?.name || '—']]) : tline('Nothing planned for today.', 'muted'));
+  box.append(meals);
+
+  // Habits, tickable right here
+  const done = habits.done[day] || [];
+  const hab = tcard('Habits', 'All habits', () => goTo('habits'));
+  if (!habits.list.length) hab.append(tline('No habits yet.', 'muted'));
+  else {
+    hab.append(tline(`${habits.list.filter(h => done.includes(h.id)).length} of ${habits.list.length} done`, 'muted'));
+    const ul = document.createElement('ul'); ul.className = 'tlist';
+    for (const h of habits.list) {
+      const li = document.createElement('li'); li.innerHTML = '<label><input type="checkbox" class="check"><span></span></label>';
+      const cb = li.querySelector('input'); cb.checked = done.includes(h.id); cb.onchange = () => toggleHabit(h.id, cb.checked);
+      li.querySelector('span').textContent = h.name;
+      ul.append(li);
+    }
+    hab.append(ul);
+  }
+  box.append(hab);
+
+  // Food expiring within 3 days
+  const expiring = food.filter(f => f.status === 'have' && f.expires && ud(f.expires) - ud(day) <= 3 * DAY).sort((a, b) => a.expires.localeCompare(b.expires));
+  const fd = tcard('Use it up', 'Food', () => goTo('food'));
+  fd.append(expiring.length ? tlist(expiring.map(f => { const [cls, words] = expState(f.expires); return [f.name, words, cls === 'over' ? 'up' : '']; }))
+    : tline('Nothing in your kitchen expires in the next 3 days.', 'muted'));
+  box.append(fd);
+}
+
+// ---- Daily habits with streaks ----
+let habits = { list: [], done: {} };   // done: {'YYYY-MM-DD': [habitId, ...]}
+let habitRef = null;
+// Days in a row the habit was done, ending today (or yesterday, so an unticked today doesn't reset it yet).
+function streak(id, done, day = today()) {
+  const has = d => (done[d] || []).includes(id);
+  let d = has(day) ? day : addDays(day, -1), n = 0;
+  while (has(d)) { n++; d = addDays(d, -1); }
+  return n;
+}
+console.assert(streak('a', { '2026-10-12': ['a'], '2026-10-13': ['a'] }, '2026-10-14') === 2
+  && streak('a', { '2026-10-13': ['a'], '2026-10-14': ['a'] }, '2026-10-14') === 2
+  && streak('a', { '2026-10-12': ['a'] }, '2026-10-14') === 0, 'streak self-check failed');
+
+async function saveHabits(next, el = $('#habitStatus')) {
+  if (!habitRef) { status('Sign in to save.', true, el); return false; }
+  // shortcut: keeps every day's ticks in one document (fine for years of daily use); prune old days if it ever fills.
+  try { await habitRef.set(next); return true; }
+  catch (e) { status(e?.code === 'quota_exceeded' ? 'Storage is full.' : 'Could not save that. Try again.', true, el); return false; }
+}
+function renderHabits() {
+  renderToday();
+  const day = today(), doneToday = habits.done[day] || [];
+  $('#habitDay').textContent = new Date(day + 'T12:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  const total = habits.list.length, count = habits.list.filter(h => doneToday.includes(h.id)).length;
+  $('#habitCount').textContent = total ? `${count} of ${total} done` : '';
+  const bar = $('#habitBar'); bar.className = 'bar'; bar.firstElementChild.style.width = (total ? count / total * 100 : 0) + '%';
+  const list = $('#habitList'); list.replaceChildren();
+  if (!total) { const li = document.createElement('li'); li.className = 'muted'; li.style.display = 'block'; li.textContent = 'No habits yet. Add one below, like "Drink water" or "Walk 20 minutes".'; list.append(li); }
+  for (const h of habits.list) {
+    const isDone = doneToday.includes(h.id), s = streak(h.id, habits.done);
+    const li = document.createElement('li'); li.className = 'habit' + (isDone ? ' done' : '');
+    li.innerHTML = '<input type="checkbox" class="check"><span class="what"><span></span><small class="streak"></small></span><span class="week" aria-hidden="true"></span><button class="del" type="button">✕</button>';
+    const cb = li.querySelector('.check');
+    cb.checked = isDone; cb.setAttribute('aria-label', `Done ${h.name} today`);
+    cb.onchange = () => toggleHabit(h.id, cb.checked);
+    li.querySelector('.what span').textContent = h.name;
+    li.querySelector('.streak').textContent = s ? `${s}-day streak` : 'No streak yet';
+    for (let i = 6; i >= 0; i--) { const dot = document.createElement('i'); if ((habits.done[addDays(day, -i)] || []).includes(h.id)) dot.className = 'on'; li.querySelector('.week').append(dot); }
+    const del = li.querySelector('.del');
+    del.setAttribute('aria-label', `Remove habit ${h.name}`);
+    del.onclick = () => {
+      if (!del.dataset.armed) { del.dataset.armed = '1'; del.textContent = 'Remove'; setTimeout(() => { delete del.dataset.armed; del.textContent = '✕'; }, 3000); return; }
+      saveHabits({ ...habits, list: habits.list.filter(x => x.id !== h.id) });
+    };
+    list.append(li);
+  }
+}
+$('#habitForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const name = $('#habitName').value.trim(), el = $('#habitStatus');
+  if (!name) return status('Type a habit, like "Drink water".', true, el);
+  if (habits.list.some(h => h.name.toLowerCase() === name.toLowerCase())) return status(`"${name}" is already on your list.`, true, el);
+  const next = { ...habits, list: [...habits.list, { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name }] };
+  if (await saveHabits(next, el)) { $('#habitName').value = ''; status(`Added ${name}.`, false, el); }
+});
+
+$('#eventForm').addEventListener('submit', async ev => {
+  ev.preventDefault();
+  const el = $('#evStatus'), cents = toCents($('#evAmount').value), name = $('#evName').value.trim();
+  if (!name) return status('Give it a name, like "Paycheck" or "Rent".', true, el);
+  if (!cents) return status('Enter an amount like 65.00.', true, el);
+  if (!calRef) return status('Sign in to save.', true, el);
+  const item = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), kind: $('#evKind').value, name, cents, date: selDate, repeat: $('#evRepeat').value };
+  try {
+    await calRef.set({ events: [...events, item] });
+    $('#evName').value = ''; $('#evAmount').value = '';
+    status(`Added ${name} on ${shortDate(selDate)}.`, false, el);
+  } catch (e) { status(e?.code === 'quota_exceeded' ? 'Storage is full. Delete some old items and try again.' : 'Could not save that. Try again.', true, el); }
+});
+
+function render() {
+  $('#monthLabel').textContent = monthName(month);
+  const { pay, bill } = renderCal();
+  const spentBy = {};
+  for (const e of expenses) spentBy[e.category] = (spentBy[e.category] || 0) + e.cents;
+  const names = [...categories.map(c => c.name), ...Object.keys(spentBy).filter(n => !categories.some(c => c.name === n))];
+  const prevSpentBy = {};
+  for (const e of prevExpenses) prevSpentBy[e.category] = (prevSpentBy[e.category] || 0) + e.cents;
+  const baseCap = n => (categories.find(c => c.name === n) || { cents: 0 }).cents;
+  // shortcut: rollover carries one month back using this month's budget amounts; a full history would need every past month.
+  // Skipped when last month has no expenses at all, so the first month in the app doesn't get a free extra budget.
+  const carry = n => rollover && prevExpenses.length && baseCap(n) > 0 ? baseCap(n) - (prevSpentBy[n] || 0) : 0;
+  const capOf = n => Math.max(0, baseCap(n) + carry(n));
+
+  const totalBudget = categories.reduce((a, c) => a + capOf(c.name), 0);
+  lastCats = { month, list: categories.map(c => ({ name: c.name, spent: spentBy[c.name] || 0, cap: capOf(c.name) })) };
+  renderAlerts();
+  const totalSpent = expenses.reduce((a, e) => a + e.cents, 0);
+  // What you can still spend: money coming in, minus bills, minus what's already spent.
+  // Money moved into savings goals this month is no longer spendable.
+  const savedThisMonth = goals.reduce((a, g) => a + (g.log || []).filter(x => x.date.startsWith(month)).reduce((b, x) => b + x.cents, 0), 0);
+  const tipsTotal = tips.reduce((a, t) => a + t.cents, 0);
+  const left = pay + tipsTotal - bill - totalSpent - savedThisMonth;
+  lastMoney = { month, left, tipsTotal };
+  renderToday();
+  $('#left').textContent = fmt(left);
+  $('#left').style.color = left < 0 ? 'var(--over)' : '';
+  $('#leftMath').textContent = pay || tipsTotal
+    ? `${fmt(pay)} paid in${tipsTotal ? ` + ${fmt(tipsTotal)} tips` : ''} − ${fmt(bill)} bills − ${fmt(totalSpent)} spent${savedThisMonth ? ` − ${fmt(savedThisMonth)} saved` : ''}`
+    : 'Add your paydays to the calendar below to see what you can spend.';
+  renderGoals(); renderDebts(); renderQuick(); renderTips(tipsTotal);
+  renderRecap({ spentBy, prevSpentBy, names, totalSpent, prevTotal: prevExpenses.reduce((a, e) => a + e.cents, 0), savedThisMonth, tipsTotal });
+  $('#spent').textContent = fmt(totalSpent);
+  $('#budget').textContent = fmt(totalBudget);
+  setBar($('#totalBar'), totalSpent, totalBudget);
+
+  const env = $('#envelopes'); env.replaceChildren();
+  if (!names.length) {
+    const p = document.createElement('p'); p.className = 'muted';
+    p.textContent = 'No spending categories yet. Your spending will show here by category as you add expenses.';
+    env.append(p);
+  }
+  for (const n of names) {
+    const spent = spentBy[n] || 0, cap = capOf(n), st = barState(spent, cap);
+    const d = document.createElement('details'); d.className = 'env';
+    d.innerHTML = '<summary><div class="env-top"><span class="env-name"></span><span class="num muted"></span></div><div class="bar"><i></i></div></summary><ul class="ledger"></ul>';
+    d.open = openEnvs.has(n);
+    d.ontoggle = () => { if (d.open) openEnvs.add(n); else openEnvs.delete(n); };
+    const mine = expenses.filter(e => e.category === n).sort((a, b) => b.date.localeCompare(a.date) || b.created - a.created);
+    const ul = d.querySelector('ul');
+    if (!mine.length) { const li = document.createElement('li'); li.className = 'muted'; li.style.display = 'block'; li.textContent = 'Nothing spent here this month.'; ul.append(li); }
+    for (const e of mine) {
+      const li = document.createElement('li');
+      li.innerHTML = '<span class="when"></span><span class="what"></span><span class="num"></span><button class="del" type="button">✕</button>';
+      li.children[0].textContent = new Date(e.date + 'T12:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      li.children[1].textContent = e.note || n;
+      li.children[2].textContent = fmt(e.cents);
+      const del = li.children[3];
+      del.setAttribute('aria-label', `Remove ${e.note || n} ${fmt(e.cents)}`);
+      del.onclick = async () => {
+        if (!del.dataset.armed) { del.dataset.armed = '1'; del.textContent = 'Remove'; setTimeout(() => { delete del.dataset.armed; del.textContent = '✕'; }, 3000); return; }
+        try { await expCol.doc(e.id).delete(); status(`Removed ${e.note || n} ${fmt(e.cents)}.`); }
+        catch { status('Could not remove that expense. Try again.', true); }
+      };
+      ul.append(li);
+    }
+    d.querySelector('.env-name').textContent = n;
+    if (st) { const p = document.createElement('span'); p.className = 'pill ' + st; p.textContent = st === 'over' ? 'Over' : 'Almost out'; d.querySelector('.env-name').append(' ', p); }
+    const c = carry(n);
+    d.querySelector('.num').textContent = (cap || c ? `${fmt(spent)} / ${fmt(cap)}` : `${fmt(spent)} · no budget`)
+      + (c ? ` (${c > 0 ? '+' : '−'}${fmt(Math.abs(c))} from last month)` : '');
+    setBar(d.querySelector('.bar'), spent, cap);
+    env.append(d);
+  }
+
+  const sel = $('#category'), prev = sel.value; sel.replaceChildren();
+  // Without saved envelopes, offer the starter list so expenses can still be filed.
+  for (const n of categories.length ? categories.map(c => c.name) : STARTER) sel.append(new Option(n, n));
+  if ([...sel.options].some(o => o.value === prev)) sel.value = prev;
+
+}
+
+function status(msg, err, el = $('#status')) { el.textContent = msg; el.classList.toggle('err', !!err); }
+
+
+$('#prev').onclick = () => shiftMonth(-1);
+$('#next').onclick = () => shiftMonth(1);
+$('#date').value = today();
+
+
+// ---- Cash tips: money in, kept apart from expenses ----
+let tips = [], unsubTips = null, tipCol = null, entryMode = 'expense';
+function setMode(m) {
+  entryMode = m;
+  const tip = m === 'tip';
+  $('#modeExp').setAttribute('aria-pressed', !tip); $('#modeTip').setAttribute('aria-pressed', tip);
+  $('#formTitle').textContent = tip ? 'Add cash tips' : 'Add an expense';
+  $('#addBtn').textContent = tip ? 'Add tips' : 'Add expense';
+  $('#catField').hidden = tip; $('#quickField').hidden = tip; $('#quickChips').hidden = tip; $('#hoursField').hidden = !tip;
+  $('#note').placeholder = tip ? 'Friday night shift' : 'Coffee';
+  $('#amount').placeholder = tip ? '85.00' : '12.50';
+  status('');
+}
+$('#modeExp').onclick = () => setMode('expense');
+$('#modeTip').onclick = () => setMode('tip');
+const DAYS = ['Sundays', 'Mondays', 'Tuesdays', 'Wednesdays', 'Thursdays', 'Fridays', 'Saturdays'];
+// Hourly rate across shifts that have hours, and the weekday that pays best per hour.
+function tipStats(list) {
+  const withH = list.filter(t => t.hours > 0);
+  const hours = withH.reduce((a, t) => a + t.hours, 0), cents = withH.reduce((a, t) => a + t.cents, 0);
+  const byDay = {};
+  for (const t of withH) { const w = new Date(t.date + 'T12:00').getDay(); (byDay[w] = byDay[w] || { c: 0, h: 0 }).c += t.cents; byDay[w].h += t.hours; }
+  const best = Object.entries(byDay).map(([w, v]) => ({ day: DAYS[w], rate: v.c / v.h })).sort((a, b) => b.rate - a.rate)[0] || null;
+  return { hours, rate: hours ? cents / hours : 0, best, days: Object.keys(byDay).length };
+}
+console.assert((() => { const s = tipStats([{ date: '2026-10-16', cents: 12000, hours: 6 }, { date: '2026-10-13', cents: 4000, hours: 4 }, { date: '2026-10-14', cents: 5000 }]);
+  return s.hours === 10 && s.rate === 1600 && s.best.day === 'Fridays' && s.best.rate === 2000; })(), 'tipStats self-check failed');
+const hrs = h => `${Math.round(h * 100) / 100} hr${h === 1 ? '' : 's'}`;
+
+function renderTips(total) {
+  $('#tipsBox').hidden = !tips.length;
+  const st = tipStats(tips);
+  $('#tipsSum').textContent = `Tips this month: ${fmt(total)} (${tips.length} ${tips.length === 1 ? 'entry' : 'entries'})`
+    + (st.hours ? ` · ${fmt(Math.round(st.rate))}/hr` : '');
+  $('#tipsStats').textContent = !st.hours ? 'Add hours worked with your tips to see your hourly rate and best days.'
+    : `${fmt(Math.round(st.rate))} an hour over ${hrs(st.hours)}.` + (st.best && st.days > 1 ? ` Best: ${st.best.day}, ${fmt(Math.round(st.best.rate))}/hr.` : '');
+  const ul = $('#tipsList'); ul.replaceChildren();
+  for (const t of [...tips].sort((a, b) => b.date.localeCompare(a.date) || b.created - a.created)) {
+    const li = document.createElement('li');
+    li.innerHTML = '<span class="when"></span><span class="what"></span><span class="num"></span><button class="del" type="button">✕</button>';
+    li.children[0].textContent = new Date(t.date + 'T12:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    li.children[1].innerHTML = '<span></span><small></small>';
+    li.children[1].firstChild.textContent = t.note || 'Cash tips';
+    li.children[1].lastChild.textContent = t.hours > 0 ? `${hrs(t.hours)} · ${fmt(Math.round(t.cents / t.hours))}/hr` : '';
+    li.children[2].textContent = fmt(t.cents);
+    const del = li.children[3];
+    del.setAttribute('aria-label', `Remove tips ${fmt(t.cents)} on ${shortDate(t.date)}`);
+    del.onclick = async () => {
+      if (!del.dataset.armed) { del.dataset.armed = '1'; del.textContent = 'Remove'; setTimeout(() => { delete del.dataset.armed; del.textContent = '✕'; }, 3000); return; }
+      try { await tipCol.doc(t.id).delete(); status(`Removed ${fmt(t.cents)} in tips.`); }
+      catch { status('Could not remove that. Try again.', true); }
+    };
+    ul.append(li);
+  }
+}
+
+$('#addForm').addEventListener('submit', async ev => {
+  ev.preventDefault();
+  const cents = toCents($('#amount').value);
+  if (!cents) return status('Enter an amount like 12.50.', true);
+  if (entryMode === 'tip') {
+    if (!tipCol) return status('Sign in to save.', true);
+    const date = $('#date').value || today(), note = $('#note').value.trim(), rawH = $('#hours').value.trim(), hours = rawH ? Number(rawH) : 0;
+    if (rawH && !(hours > 0 && hours <= 24)) return status('Enter hours worked as a number like 6 or 5.5.', true);
+    try {
+      await tipCol.add({ cents, note, date, month: date.slice(0, 7), created: Date.now(), ...(hours ? { hours } : {}) });
+      $('#amount').value = ''; $('#note').value = ''; $('#hours').value = '';
+      status(date.slice(0, 7) === month ? `Added ${fmt(cents)} in tips.` : `Added ${fmt(cents)} in tips to ${monthName(date.slice(0, 7))}.`);
+    } catch { status('Could not save your tips. Try again.', true); }
+    return;
+  }
+  if (!$('#category').value) return status('Pick a category for this expense.', true);
+  if (!expCol) return status('Sign in to save.', true);
+  const date = $('#date').value || today();
+  try {
+    const category = $('#category').value, note = $('#note').value.trim();
+    await expCol.add({ cents, category, note, date, month: date.slice(0, 7), created: Date.now() });
+    if ($('#saveQuick').checked) {
+      const label = note || category;
+      if (!quick.some(q => sameName(q.label, label) && q.cents === cents)) await saveQuick([...quick, { id: newId(), label, cents, category }]);
+      $('#saveQuick').checked = false;
+    }
+    $('#amount').value = ''; $('#note').value = '';
+    status(date.slice(0, 7) === month ? `Added ${fmt(cents)}.` : `Added ${fmt(cents)} to ${monthName(date.slice(0, 7))}.`);
+    $('#amount').focus();
+  } catch (e) { status(e?.code === 'quota_exceeded' ? 'Storage is full. Delete old expenses and try again.' : 'Could not save that expense. Try again.', true); }
+});
+
+function subscribeMonth() {
+  if (!expCol) return;
+  if (unsubExp) unsubExp();
+  expenses = [];
+  unsubExp = expCol.where('month', '==', month).onSnapshot(
+    s => { expenses = s.docs.map(d => ({ id: d.id, ...d.data() })); render(); },
+    () => status('Lost connection to your saved data. Reload the page.', true));
+  if (unsubPrev) unsubPrev();
+  prevExpenses = [];
+  unsubPrev = expCol.where('month', '==', prevMonthOf(month)).onSnapshot(
+    s => { prevExpenses = s.docs.map(d => ({ id: d.id, ...d.data() })); render(); },
+    () => status('Lost connection to your saved data. Reload the page.', true));
+  if (unsubTips) unsubTips();
+  tips = [];
+  unsubTips = tipCol.where('month', '==', month).onSnapshot(
+    s => { tips = s.docs.map(d => ({ id: d.id, ...d.data() })); render(); },
+    () => status('Lost connection to your saved data. Reload the page.', true));
+}
+
+render(); renderFood(); renderHabits();
+{ let t = null; try { t = localStorage.getItem('tab'); } catch {} showTab(TABS.includes(t) ? t : 'today'); }
+renderKitchen();
+renderKcal();
+function startData(db, uid) {
+  // Private to the signed-in person: nobody else who opens the link can see it.
+  budgetRef = db.doc(`data/users/${uid}/budget`);
+  expCol = budgetRef.collection('expenses');
+  tipCol = budgetRef.collection('tips');
+  budgetRef.onSnapshot(s => {
+    categories = s.exists ? (s.data().categories || []) : [];
+    rollover = s.exists && !!s.data().rollover;
+    render();
+  }, () => status('Lost connection to your saved data. Reload the page.', true));
+  subscribeMonth();
+  $('#icsBox').hidden = false;
+  foodRef = db.doc(`data/users/${uid}/food`);
+  foodRef.onSnapshot(s => { food = s.exists ? (s.data().items || []) : []; renderFood(); },
+    () => status('Lost connection to your saved data. Reload the page.', true, $('#foodStatus')));
+  kcalRef = db.doc(`data/users/${uid}/calories`);
+  kcalRef.onSnapshot(s => { const d = s.exists ? s.data() : {}; kcal = { goal: d.goal || 0, days: d.days || {} }; renderKcal(); },
+    () => status('Lost connection to your saved data. Reload the page.', true, $('#kcalStatus')));
+  kitchenRef = db.doc(`data/users/${uid}/kitchen`);
+  kitchenRef.onSnapshot(s => { const d = s.exists ? s.data() : {}; kitchen = { recipes: d.recipes || [], plan: d.plan || {}, prefs: d.prefs || {} }; renderKitchen(); },
+    () => status('Lost connection to your saved data. Reload the page.', true, $('#planStatus')));
+  quickRef = db.doc(`data/users/${uid}/quick`);
+  quickRef.onSnapshot(s => { quick = s.exists ? (s.data().list || []) : []; renderQuick(); },
+    () => status('Lost connection to your saved data. Reload the page.', true));
+  debtRef = db.doc(`data/users/${uid}/debts`);
+  debtRef.onSnapshot(s => { const d = s.exists ? s.data() : {}; debts = d.list || []; debtExtra = d.extra || 0; renderDebts(); },
+    () => status('Lost connection to your saved data. Reload the page.', true, $('#debtStatus')));
+  $('#backupBox').hidden = false;
+  goalRef = db.doc(`data/users/${uid}/goals`);
+  goalRef.onSnapshot(s => { goals = s.exists ? (s.data().list || []) : []; render(); },
+    () => status('Lost connection to your saved data. Reload the page.', true, $('#goalStatus')));
+  habitRef = db.doc(`data/users/${uid}/habits`);
+  habitRef.onSnapshot(s => { const d = s.exists ? s.data() : {}; habits = { list: d.list || [], done: d.done || {} }; renderHabits(); },
+    () => status('Lost connection to your saved data. Reload the page.', true, $('#habitStatus')));
+  calRef = db.doc(`data/users/${uid}/calendar`);
+  calRef.onSnapshot(s => { events = s.exists ? (s.data().events || []) : []; render(); },
+    () => status('Lost connection to your saved data. Reload the page.', true, $('#evStatus')));
+}
+</script>
+<script>
+// ---- Standalone app: files, recipes typed in by hand, import, sign-in, offline ----
+function saveFile(name, blob) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+}
+
+$('#recipeForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const el = $('#planStatus'), name = $('#recName').value.trim();
+  if (!name) return status('Name the recipe.', true, el);
+  const r = toRecipe({ name, minutes: $('#recMin').value, kcal: $('#recKcal').value,
+    uses: $('#recIng').value.split(','), steps: $('#recSteps').value.split('\n') });
+  r.uses = r.uses.map(x => x.trim()).filter(Boolean); r.steps = r.steps.map(x => x.trim()).filter(Boolean);
+  if (await saveKitchen({ recipes: [...kitchen.recipes, r] }, el)) {
+    for (const id of ['#recName', '#recMin', '#recKcal', '#recIng', '#recSteps']) $(id).value = '';
+    status(`Saved ${name}.`, false, el);
+  }
+});
+
+// Import the JSON file exported from the old Claude version. Docs keep their paths; expenses and tips are added.
+let fdb = null, fuid = null;
+$('#importFile').onchange = async () => {
+  const file = $('#importFile').files[0], el = $('#backupStatus');
+  $('#importFile').value = '';
+  if (!file) return;
+  if (!fdb || !fuid) return status('Sign in first.', true, el);
+  let data;
+  try { data = JSON.parse(await file.text()); } catch { return status('That file is not an export from the old app.', true, el); }
+  if (!data || data.app !== 'day-to-day' || typeof data.docs !== 'object') return status('That file is not an export from the old app.', true, el);
+  const base = `data/users/${fuid}`;
+  const writes = [];
+  for (const [name, body] of Object.entries(data.docs)) if (/^[a-z]+$/.test(name) && body && typeof body === 'object') writes.push([fdb.doc(`${base}/${name}`), body]);
+  for (const sub of ['expenses', 'tips'])
+    for (const row of Array.isArray(data[sub]) ? data[sub] : []) if (row && typeof row === 'object') writes.push([fdb.collection(`${base}/budget/${sub}`).doc(), row]);
+  status(`Importing ${writes.length} items…`, false, el);
+  try {
+    for (let i = 0; i < writes.length; i += 400) {
+      const b = fdb.batch();
+      for (const [ref, body] of writes.slice(i, i + 400)) b.set(ref, body);
+      await b.commit();
+    }
+    status(`Imported everything (${writes.length} items).`, false, el);
+  } catch { status('The import stopped partway. Try again; already-imported expenses may show twice.', true, el); }
+};
+
+// ---- Firebase: sign-in and private, synced storage ----
+(() => {
+  const el = $('#authStatus');
+  if (!window.firebase || !window.FIREBASE_CONFIG || !window.FIREBASE_CONFIG.apiKey) {
+    status('This copy of the app isn\'t connected to Firebase yet. Fill in firebase-config.js (see README).', true, el);
+    return;
+  }
+  firebase.initializeApp(window.FIREBASE_CONFIG);
+  fdb = firebase.firestore();
+  fdb.settings({ ignoreUndefinedProperties: true });
+  // Keeps a copy on the device so the app opens and edits offline, then syncs.
+  fdb.enablePersistence({ synchronizeTabs: true }).catch(() => {});
+  const auth = firebase.auth();
+  const authMsg = e => ({
+    'auth/invalid-credential': 'Wrong email or password.', 'auth/wrong-password': 'Wrong email or password.',
+    'auth/user-not-found': 'No account with that email. Tap "Create my account".', 'auth/email-already-in-use': 'That email already has an account. Tap "Sign in".',
+    'auth/weak-password': 'Use a password with at least 6 characters.', 'auth/invalid-email': 'That email address doesn\'t look right.',
+    'auth/network-request-failed': 'No connection. Try again when you\'re online.', 'auth/too-many-requests': 'Too many tries. Wait a minute and try again.',
+  }[e?.code] || 'Something went wrong. Try again.');
+  const creds = () => [$('#authEmail').value.trim(), $('#authPass').value];
+  $('#authForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    try { status('Signing in…', false, el); await auth.signInWithEmailAndPassword(...creds()); status('', false, el); } catch (err) { status(authMsg(err), true, el); }
+  });
+  $('#authCreate').onclick = async () => {
+    const [email, pass] = creds();
+    if (!email || pass.length < 6) return status('Enter your email and a password of at least 6 characters.', true, el);
+    try { await auth.createUserWithEmailAndPassword(email, pass); } catch (err) { status(authMsg(err), true, el); }
+  };
+  $('#authReset').onclick = async () => {
+    const email = creds()[0];
+    if (!email) return status('Type your email above first.', true, el);
+    try { await auth.sendPasswordResetEmail(email); status('Check your email for a reset link.', false, el); } catch (err) { status(authMsg(err), true, el); }
+  };
+  $('#signOut').onclick = () => auth.signOut();
+  let started = false;
+  auth.onAuthStateChanged(u => {
+    document.body.classList.toggle('signed-out', !u);
+    $('#authPane').hidden = !!u;
+    if (u && !started) { started = true; fuid = u.uid; $('#whoami').textContent = `Signed in as ${u.email}`; startData(fdb, u.uid); }
+    if (!u && started) location.reload(); // drop the previous person's data from the screen
+  });
+  const net = () => { $('#notice').hidden = navigator.onLine; };
+  addEventListener('online', net); addEventListener('offline', net); net();
+})();
+
+if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+</script>
+</body>
+</html>
