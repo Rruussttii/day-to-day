@@ -20,17 +20,17 @@
 /* Layout: one narrow column, like a stack of cash envelopes — month summary, envelopes, add form, ledger. */
 :root {
   --bg: #eef1ee; --card: #fbfcfa; --fg: #1d2a24; --muted: #5e6d65; --line: #d3dbd5;
-  --accent: #1f7a54; --accent-fg: #ffffff; --warn: #b7791f; --over: #c0392b; --track: #dde5df; --bill: #a3466f; --in: #2f6fb3; --out: #c97a22;
+  --accent: #1f7a54; --accent-fg: #ffffff; --warn: #b7791f; --over: #c0392b; --track: #dde5df; --bill: #a3466f; --bill-ink: #a3466f; --in: #2f6fb3; --out: #c97a22;
   --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
   --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   --bg: #121815; --card: #1a221e; --fg: #e4ebe6; --muted: #93a39a; --line: #2c3832;
-  --accent: #4cc38a; --accent-fg: #0d1a13; --warn: #e0a84a; --over: #ef6b5d; --track: #26302b; --bill: #e58fb6; --in: #4a86cc; --out: #c27c35; color-scheme: dark } }
+  --accent: #4cc38a; --accent-fg: #0d1a13; --warn: #e0a84a; --over: #ef6b5d; --track: #26302b; --bill: #bd5a8c; --bill-ink: #e58fb6; --in: #4a86cc; --out: #c27c35; color-scheme: dark } }
 :root[data-theme="dark"] {
   --bg: #121815; --card: #1a221e; --fg: #e4ebe6; --muted: #93a39a; --line: #2c3832;
-  --accent: #4cc38a; --accent-fg: #0d1a13; --warn: #e0a84a; --over: #ef6b5d; --track: #26302b; --bill: #e58fb6; --in: #4a86cc; --out: #c27c35; color-scheme: dark }
+  --accent: #4cc38a; --accent-fg: #0d1a13; --warn: #e0a84a; --over: #ef6b5d; --track: #26302b; --bill: #bd5a8c; --bill-ink: #e58fb6; --in: #4a86cc; --out: #c27c35; color-scheme: dark }
 
 body { background: var(--bg); color: var(--fg); font: 15px/1.5 var(--body); padding: 0 16px; }
 main { max-width: 640px; margin: 0 auto; padding-block: 20px 48px; display: grid; gap: 20px; }
@@ -63,7 +63,7 @@ details.env > summary .env-name::before { content: "▸ "; color: var(--muted); 
 details.env[open] > summary .env-name::before { content: "▾ "; }
 .env-top { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; flex-wrap: wrap; }
 .env-name { font-weight: 600; }
-.pill { font-size: 0.75rem; font-weight: 600; padding: 1px 8px; border-radius: 99px; border: 1px solid currentColor; }
+.pill { font-size: 0.75rem; font-weight: 600; padding: 1px 8px; border-radius: 99px; border: 1px solid currentColor; white-space: nowrap; }
 .pill.over { color: var(--over); } .pill.warn { color: var(--warn); }
 
 form, .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; display: grid; gap: 12px; }
@@ -94,19 +94,22 @@ details summary { cursor: pointer; font-weight: 600; font-family: var(--display)
 .day[aria-pressed="true"] { outline: 2px solid var(--accent); outline-offset: 1px; }
 .dots { display: flex; gap: 3px; flex-wrap: wrap; }
 .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
-.dot.pay { background: var(--accent); } .dot.bill { background: var(--bill); }
+.dot.pay { background: var(--in); } .dot.bill { background: var(--bill); }
 .legend { display: flex; gap: 12px; font-size: 0.85rem; color: var(--muted); align-items: center; flex-wrap: wrap; }
 .totals { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 0.9rem; }
 .kind { font-size: 0.75rem; font-weight: 600; }
-.kind.pay { color: var(--accent); } .kind.bill { color: var(--bill); }
+.kind.pay { color: var(--in); } .kind.bill { color: var(--bill-ink); }
 form.plain { background: none; border: 0; padding: 0; }
 .dot.bill.paid { background: transparent; box-shadow: inset 0 0 0 1.5px var(--bill); }
 .paidbox { display: flex; align-items: center; gap: 4px; cursor: pointer; }
 .paidbox input { width: auto; accent-color: var(--bill); }
 .what.done > span { text-decoration: line-through; color: var(--muted); }
 #leftMath { font-size: 0.85rem; overflow-wrap: anywhere; }
-.alert { border: 1px solid var(--warn); color: var(--warn); background: var(--card); border-radius: 12px; padding: 12px 16px; font-weight: 600; overflow-wrap: anywhere; }
-.alert.urgent { border-color: var(--over); color: var(--over); }
+.alert { border: 1px solid var(--warn); color: var(--fg); background: var(--card); border-radius: 12px; padding: 12px 16px; font-weight: 600; overflow-wrap: anywhere; display: grid; gap: 4px; }
+.alert > div { display: flex; gap: 8px; align-items: baseline; }
+.alert .sev { width: 9px; height: 9px; border-radius: 50%; flex: none; transform: translateY(-1px); background: var(--warn); }
+.alert .sev.over { background: var(--over); }
+.alert.urgent { border-color: var(--over); }
 .tabpane { display: grid; gap: 20px; }
 .tabs { display: flex; gap: 4px; background: var(--track); padding: 4px; border-radius: 10px; }
 .tabs button { flex: 1; border: 0; background: transparent; font-weight: 600; color: var(--muted); padding: 8px 2px; font-size: 0.82rem; min-width: 0; }
@@ -833,7 +836,8 @@ function renderAlerts() {
   const banner = $('#alert'), lines = alertLines();
   banner.hidden = !lines.length;
   banner.classList.toggle('urgent', lines.some(l => l[0] === 'over'));
-  banner.replaceChildren(...lines.map(([, text]) => { const d = document.createElement('div'); d.textContent = text; return d; }));
+  // Each line gets its own severity dot; the text stays in the normal ink so it reads in both themes.
+  banner.replaceChildren(...lines.map(([sev, text]) => { const d = document.createElement('div'), i = document.createElement('i'), sp = document.createElement('span'); i.className = 'sev ' + sev; sp.textContent = text; d.append(i, sp); return d; }));
 }
 
 function renderSoon() {
@@ -895,7 +899,7 @@ function renderCal() {
     d => { selDate = d; renderCal(); }, 'nothing due');
 
   const t = $('#calTotals'); t.replaceChildren();
-  for (const [label, val, color] of [['Paid in', pay, 'var(--accent)'], ['Bills', bill, 'var(--bill)'], ['Still unpaid', unpaid, unpaid ? 'var(--bill)' : '']]) {
+  for (const [label, val, color] of [['Paid in', pay, 'var(--in)'], ['Bills', bill, 'var(--bill-ink)'], ['Still unpaid', unpaid, unpaid ? 'var(--bill-ink)' : '']]) {
     const s = document.createElement('span'); s.innerHTML = '<span class="muted"></span> <b class="num"></b>';
     s.firstChild.textContent = label; s.lastChild.textContent = fmt(val); s.lastChild.style.color = color; t.append(s);
   }
@@ -1060,17 +1064,19 @@ function renderFood() {
       li.innerHTML = '<span></span><span class="what"></span><button type="button" class="small-btn"></button><button class="del" type="button">✕</button>';
       li.children[1].textContent = f.name;
       if (st === 'have') {
-        if (f.expires) {
-          const [cls, words] = expState(f.expires);
-          if (cls) { const p = document.createElement('span'); p.className = 'pill ' + cls; p.textContent = words; li.children[1].append(' ', p); }
-        }
         const row = document.createElement('label'); row.className = 'exprow';
         row.innerHTML = 'Expires <input type="date">';
         const inp = row.lastChild;
+        if (f.expires) {
+          // The "Expires tomorrow" / "Expired" tag sits on this full-width line, where it has room.
+          const [cls, words] = expState(f.expires);
+          if (cls) { const p = document.createElement('span'); p.className = 'pill ' + cls; p.textContent = words; row.append(p); }
+        }
         inp.value = f.expires || '';
         inp.setAttribute('aria-label', `When ${f.name} expires`);
         inp.onchange = () => saveFood(food.map(x => x.id === f.id ? { ...x, expires: inp.value || '' } : x));
-        li.children[1].append(row);
+        row.style.gridColumn = '1 / -1'; // its own full-width line under the item, so the name never gets squeezed
+        li.append(row);
       }
       const [n, unit] = splitQty(f.qty);
       if (n == null) { li.children[0].className = 'muted'; li.children[0].textContent = f.qty; }
@@ -1204,7 +1210,7 @@ let weekStart = addDays(today(), -new Date(today() + 'T12:00').getDay()); // Sun
 async function saveKitchen(patch, el) {
   if (!kitchenRef) { status('Sign in to save.', true, el); return false; }
   // shortcut: past weeks' plans stay in this document; prune old dates if it ever fills up.
-  try { await kitchenRef.set({ ...kitchen, ...patch }); return true; }
+  try { await kitchenRef.set(patch, { merge: true }); return true; }
   catch (e) { status(e?.code === 'quota_exceeded' ? 'Storage is full. Delete some saved recipes.' : 'Could not save that. Try again.', true, el); return false; }
 }
 function renderRecipes() {
@@ -1228,9 +1234,9 @@ function slotEditor(slot, d, meal) {
   ok.onclick = async () => {
     const r = kitchen.recipes.find(x => x.id === sel.value), typed = inp.value.trim();
     if (!r && !typed) return status('Pick a recipe or type a meal.', true, el);
-    const entry = r ? { name: r.name, recipeId: r.id } : { name: typed };
+    const entry = r ? { name: r.name, recipeId: r.id } : { name: typed, recipeId: null }; // null clears an old link when saved as a merge
     const day = { ...(kitchen.plan[d] || {}), [meal]: entry };
-    if (!(await saveKitchen({ plan: { ...kitchen.plan, [d]: day } }, el))) return;
+    if (!(await saveKitchen({ plan: { [d]: day } }, el))) return;
     if (r) {
       // Whatever the recipe needs that isn't in the kitchen goes on the shopping list.
       const missing = [...toRecipe(r).uses, ...toRecipe(r).buy].filter(n => !food.some(f => f.status === 'have' && sameName(f.name, n)));
@@ -1268,7 +1274,7 @@ function renderPlan() {
         const nm = document.createElement('span'); nm.className = 'meal-name'; nm.textContent = entry.name; slot.append(nm);
         const x = document.createElement('button'); x.type = 'button'; x.className = 'del'; x.textContent = '✕';
         x.setAttribute('aria-label', `Clear ${meal} on ${shortDate(d)}`);
-        x.onclick = () => { const day = { ...(kitchen.plan[d] || {}) }; delete day[meal]; saveKitchen({ plan: { ...kitchen.plan, [d]: day } }, $('#planStatus')); };
+        x.onclick = () => { saveKitchen({ plan: { [d]: { [meal]: firebase.firestore.FieldValue.delete() } } }, $('#planStatus')); };
         slot.append(x);
       } else {
         const add = document.createElement('button'); add.type = 'button'; add.className = 'addslot'; add.textContent = `+ Add ${meal}`;
@@ -1586,7 +1592,7 @@ const kcalSum = d => (kcal.days[d] || []).reduce((a, x) => a + x.kcal, 0);
 async function saveKcal(patch, el = $('#kcalStatus')) {
   if (!kcalRef) { status('Sign in to save.', true, el); return false; }
   // shortcut: every day's log lives in one document (years of normal use fit); prune old days if it ever fills.
-  try { await kcalRef.set({ ...kcal, ...patch }); return true; }
+  try { await kcalRef.set(patch, { merge: true }); return true; }
   catch { status('Could not save that. Try again.', true, el); return false; }
 }
 function renderKcal() {
@@ -1619,7 +1625,7 @@ function renderKcal() {
       li.innerHTML = '<span class="what"></span><span class="num"></span><button class="del" type="button">✕</button>';
       li.children[0].textContent = x.name; li.children[1].textContent = `${x.kcal.toLocaleString('en-US')} cal`;
       li.children[2].setAttribute('aria-label', `Remove ${x.name}`);
-      li.children[2].onclick = () => saveKcal({ days: { ...kcal.days, [d]: items.filter(y => y.id !== x.id) } });
+      li.children[2].onclick = () => saveKcal({ days: { [d]: items.filter(y => y.id !== x.id) } });
       ul.append(li);
     }
     box.append(head, ul);
@@ -1643,7 +1649,7 @@ $('#kcalForm').addEventListener('submit', async e => {
   if (!name) return status('Type what you ate.', true, el);
   if (!(n > 0 && n < 10000)) return status('Enter the calories, like 450.', true, el);
   const entry = { id: newId(), meal: $('#kcalMeal').value, name, kcal: n };
-  if (await saveKcal({ days: { ...kcal.days, [kcalDay]: [...(kcal.days[kcalDay] || []), entry] } }, el)) {
+  if (await saveKcal({ days: { [kcalDay]: [...(kcal.days[kcalDay] || []), entry] } }, el)) {
     $('#kcalName').value = ''; $('#kcalAmt').value = '';
     status(`Logged ${name}, ${n} cal.`, false, el);
   }
@@ -1656,7 +1662,7 @@ let lastMoney = null;   // {month, left, tipsTotal} from the last Money render
 function toggleHabit(id, on, day = today()) {
   const ids = new Set(habits.done[day] || []);
   if (on) ids.add(id); else ids.delete(id);
-  return saveHabits({ ...habits, done: { ...habits.done, [day]: [...ids] } });
+  return saveHabits({ done: { [day]: [...ids] } });
 }
 function goTo(tab, focusId) {
   showTab(tab);
@@ -2094,7 +2100,7 @@ console.assert(streak('a', { '2026-10-12': ['a'], '2026-10-13': ['a'] }, '2026-1
 async function saveHabits(next, el = $('#habitStatus')) {
   if (!habitRef) { status('Sign in to save.', true, el); return false; }
   // shortcut: keeps every day's ticks in one document (fine for years of daily use); prune old days if it ever fills.
-  try { await habitRef.set(next); return true; }
+  try { await habitRef.set(next, { merge: true }); return true; }
   catch (e) { status(e?.code === 'quota_exceeded' ? 'Storage is full.' : 'Could not save that. Try again.', true, el); return false; }
 }
 function renderHabits() {
@@ -2120,7 +2126,7 @@ function renderHabits() {
     del.setAttribute('aria-label', `Remove habit ${h.name}`);
     del.onclick = () => {
       if (!del.dataset.armed) { del.dataset.armed = '1'; del.textContent = 'Remove'; setTimeout(() => { delete del.dataset.armed; del.textContent = '✕'; }, 3000); return; }
-      saveHabits({ ...habits, list: habits.list.filter(x => x.id !== h.id) });
+      saveHabits({ list: habits.list.filter(x => x.id !== h.id) });
     };
     list.append(li);
   }
@@ -2130,7 +2136,7 @@ $('#habitForm').addEventListener('submit', async e => {
   const name = $('#habitName').value.trim(), el = $('#habitStatus');
   if (!name) return status('Type a habit, like "Drink water".', true, el);
   if (habits.list.some(h => h.name.toLowerCase() === name.toLowerCase())) return status(`"${name}" is already on your list.`, true, el);
-  const next = { ...habits, list: [...habits.list, { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name }] };
+  const next = { list: [...habits.list, { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name }] };
   if (await saveHabits(next, el)) { $('#habitName').value = ''; status(`Added ${name}.`, false, el); }
 });
 
@@ -2610,8 +2616,8 @@ $('#votePlan').onclick = async () => {
   const el = $('#voteStatus'), top = voteLeader(vote?.options || [], vote?.votes || {}), d = $('#voteDate').value || today();
   if (!top) return;
   const r = kitchen.recipes.find(x => x.id === top.recipeId) || kitchen.recipes.find(x => sameName(x.name, top.name));
-  const entry = r ? { name: r.name, recipeId: r.id } : { name: top.name };
-  if (!(await saveKitchen({ plan: { ...kitchen.plan, [d]: { ...(kitchen.plan[d] || {}), dinner: entry } } }, el))) return;
+  const entry = r ? { name: r.name, recipeId: r.id } : { name: top.name, recipeId: null };
+  if (!(await saveKitchen({ plan: { [d]: { dinner: entry } } }, el))) return;
   const missing = r ? [...toRecipe(r).uses, ...toRecipe(r).buy].filter(n => !food.some(f => f.status === 'have' && sameName(f.name, n))) : [];
   const n = missing.length ? await addToShopping(missing, el) : 0;
   status(`${top.name} is on your dinner plan${n ? `, and ${n} missing item${n > 1 ? 's are' : ' is'} on your shopping list` : ''}.`, false, el);
