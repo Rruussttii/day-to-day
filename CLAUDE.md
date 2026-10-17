@@ -15,3 +15,10 @@ Never change the Firestore document paths without migrating existing data:
 - Personal: `data/users/<uid>/budget` (+ subcollections `expenses`, `tips`), `food`, `calories`, `kitchen`, `quick`, `debts`, `goals`, `habits`, `calendar`, `household` (pointer `{id}`).
 - Shared with a roommate: `households/<inviteCode>` (`members`, `names`) with subcollections `shopping`, `votes/<date>`, `expenses` (shared costs; `kind: 'settle'` for paybacks), `bills`, `chores`, `notes`.
 - Rules for both live in `firestore.rules`; the owner pastes them into the Firebase console by hand.
+
+List storage: personal lists are maps of id → item so each edit writes one item (`saveList` / `readList` in index.html):
+`food.byId`, `kitchen.recipesById`, `goals.byId`, `debts.byId`, `calendar.byId`, `quick.byId`, `habits.listById`.
+Older accounts may still have the array form (`items`, `recipes`, `list`, `events`); it's read as-is and converted on the next save. Keep reading both.
+Calories (`calories.days.<date>`), habit ticks (`habits.done.<date>`) and the meal plan (`kitchen.plan.<date>`) are written one day at a time with merge.
+
+Every item is editable in place: `openEditor(host, fields, onSave, { onCancel, onDelete })`, opened by tapping the name (`makeEditable`). New item types should get the same.

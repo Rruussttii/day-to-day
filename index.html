@@ -162,6 +162,11 @@ details.recipe summary { font-family: var(--body); font-weight: 600; }
 .tlist li { display: flex; justify-content: space-between; gap: 10px; align-items: center; }
 .tlist li > span:first-child { min-width: 0; overflow-wrap: anywhere; }
 .tlist label { display: flex; gap: 8px; align-items: center; cursor: pointer; }
+.editable { cursor: pointer; text-decoration: underline dotted var(--muted); text-underline-offset: 3px; }
+.editable:hover { color: var(--accent); }
+.editform { grid-column: 1 / -1; display: grid; gap: 8px; padding: 6px 0; }
+.editbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.editbar .del { margin-left: auto; }
 .addbox > summary { cursor: pointer; list-style: none; color: var(--accent); font-weight: 600; padding: 6px 0; }
 .addbox > summary::-webkit-details-marker { display: none; }
 .addbox[open] > summary { margin-bottom: 10px; }
@@ -620,6 +625,7 @@ textarea { font: inherit; color: var(--fg); background: var(--bg); border: 1px s
         <button type="button" id="modeTip" aria-pressed="false">Cash tips</button>
       </div>
       <div class="chips" id="quickChips" aria-label="Quick-add buttons"></div>
+      <div id="quickEditHost"></div>
       <div class="row">
         <label><span class="label">Amount</span><input id="amount" inputmode="decimal" placeholder="12.50" required></label>
         <label id="catField"><span class="label">Category</span><select id="category" required></select></label>
@@ -761,6 +767,7 @@ function setBar(el, spent, cap) {
 // ---- Paydays & bills calendar ----
 let events = [];      // [{id, kind: 'pay'|'bill', name, cents, date, repeat}]
 let calRef = null;
+const saveEvents = next => saveList(calRef, 'byId', 'events', events, next, legacy.events);
 let selDate = today();
 const DAY = 864e5;
 const ud = s => Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10));
@@ -798,7 +805,7 @@ const isPaid = (ev, d) => !!(ev.paid && ev.paid[d]);
 async function togglePaid(ev, d) {
   const paid = { ...(ev.paid || {}) };
   if (paid[d]) delete paid[d]; else paid[d] = true;
-  try { await calRef.set({ events: events.map(e => e.id === ev.id ? { ...e, paid } : e) }); }
+  try { await saveEvents(events.map(e => e.id === ev.id ? { ...e, paid } : e)); }
   catch { status('Could not save that. Try again.', true, $('#evStatus')); }
 }
 
@@ -931,9 +938,17 @@ function renderCal() {
     del.setAttribute('aria-label', `Delete ${ev.name}`);
     del.onclick = async () => {
       if (!del.dataset.armed) { del.dataset.armed = '1'; del.textContent = ev.repeat === 'none' ? 'Delete' : 'Delete all repeats'; setTimeout(() => { delete del.dataset.armed; del.textContent = '✕'; }, 3000); return; }
-      try { await calRef.set({ events: events.filter(e => e.id !== ev.id) }); }
+      try { await saveEvents(events.filter(e => e.id !== ev.id)); }
       catch { status('Could not delete that. Try again.', true, $('#evStatus')); }
     };
+    makeEditable(li.querySelector('.what span'), ev.name, () => openEditor(li, [
+      { key: 'kind', label: 'Type', type: 'select', value: ev.kind, options: [['bill', 'Bill due'], ['pay', 'Payday']] },
+      { key: 'name', label: 'Name', type: 'text', value: ev.name, required: true },
+      { key: 'cents', label: 'Amount', type: 'money', value: ev.cents, required: true },
+      { key: 'date', label: 'First date', type: 'date', value: ev.date, required: true },
+      { key: 'repeat', label: 'Repeats', type: 'select', value: ev.repeat, options: [['none', 'Just once'], ['weekly', 'Every week'], ['biweekly', 'Every 2 weeks'], ['monthly', 'Every month']] },
+    ], async v => { await saveEvents(events.map(e => e.id === ev.id ? { ...e, ...v } : e)); },
+    { onCancel: renderCal, onDelete: () => saveEvents(events.filter(e => e.id !== ev.id)) }));
     list.append(li);
   }
   return { pay, bill };
@@ -1004,7 +1019,7 @@ for (const t of TABS) $(`#tab${cap(t)}`).onclick = () => showTab(t);
 
 async function saveFood(next, el = $('#foodStatus')) {
   if (!foodRef) { status('Sign in to save.', true, el); return false; }
-  try { await foodRef.set({ items: next }); return true; }
+  try { await saveList(foodRef, 'byId', 'items', food, next, legacy.food); return true; }
   catch { status('Could not save that. Try again.', true, el); return false; }
 }
 // "2 lb" -> [2, 'lb']; blank -> [1, '']; text with no leading number ("a bunch") -> [null, text], no steppers.
@@ -1063,6 +1078,14 @@ function renderFood() {
       const li = document.createElement('li'); li.className = 'food';
       li.innerHTML = '<span></span><span class="what"></span><button type="button" class="small-btn"></button><button class="del" type="button">✕</button>';
       li.children[1].textContent = f.name;
+      makeEditable(li.children[1], f.name, () => openEditor(li, [
+        { key: 'name', label: 'Item', type: 'text', value: f.name, required: true },
+        { key: 'qty', label: 'How much', type: 'text', value: f.qty || '' },
+        { key: 'status', label: 'List', type: 'select', value: f.status, options: [['need', 'Shopping list'], ['have', 'Already have']] },
+      ], async v => {
+        if (food.some(x => x.id !== f.id && sameName(x.name, v.name))) return `${v.name} is already on your lists.`;
+        await saveFood(food.map(x => x.id === f.id ? { ...x, ...v } : x));
+      }, { onCancel: renderFood, onDelete: () => saveFood(food.filter(x => x.id !== f.id)) }));
       if (st === 'have') {
         const row = document.createElement('label'); row.className = 'exprow';
         row.innerHTML = 'Expires <input type="date">';
@@ -1191,6 +1214,21 @@ function recipeCard(r, { saved }) {
   a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'Find recipes online';
   act.append(a);
   if (saved) {
+    const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'small-btn'; edit.textContent = 'Edit';
+    edit.setAttribute('aria-label', `Edit recipe ${r.name}`);
+    edit.onclick = () => openEditor(act, [
+      { key: 'name', label: 'Recipe name', type: 'text', value: r.name, required: true },
+      { key: 'minutes', label: 'Minutes', type: 'number', value: r.minutes || '' },
+      { key: 'kcal', label: 'Calories per serving', type: 'number', value: r.kcal || '' },
+      { key: 'uses', label: 'Ingredients, separated by commas', type: 'text', value: r.uses.join(', ') },
+      { key: 'buy', label: 'Also need to buy, separated by commas', type: 'text', value: r.buy.join(', ') },
+      { key: 'steps', label: 'Steps, one per line', type: 'textarea', value: r.steps.join('\n') },
+    ], async v => {
+      const list = (str, sep) => str.split(sep).map(x => x.trim()).filter(Boolean);
+      const next = toRecipe({ ...r, name: v.name, minutes: v.minutes, kcal: v.kcal, uses: list(v.uses, ','), buy: list(v.buy, ','), steps: list(v.steps, '\n') });
+      if (!(await saveKitchen({ recipes: kitchen.recipes.map(x => x.id === r.id ? next : x) }, el))) return 'Could not save that. Try again.';
+    }, { onCancel: renderRecipes, onDelete: () => saveKitchen({ recipes: kitchen.recipes.filter(x => x.id !== r.id) }, el) });
+    act.prepend(edit);
     const del = document.createElement('button'); del.type = 'button'; del.className = 'del'; del.textContent = 'Delete';
     del.setAttribute('aria-label', `Delete recipe ${r.name}`);
     del.onclick = () => {
@@ -1210,7 +1248,12 @@ let weekStart = addDays(today(), -new Date(today() + 'T12:00').getDay()); // Sun
 async function saveKitchen(patch, el) {
   if (!kitchenRef) { status('Sign in to save.', true, el); return false; }
   // shortcut: past weeks' plans stay in this document; prune old dates if it ever fills up.
-  try { await kitchenRef.set(patch, { merge: true }); return true; }
+  try {
+    const { recipes, ...rest } = patch;
+    if (recipes) await saveList(kitchenRef, 'recipesById', 'recipes', kitchen.recipes, recipes, legacy.recipes);
+    if (Object.keys(rest).length) await kitchenRef.set(rest, { merge: true });
+    return true;
+  }
   catch (e) { status(e?.code === 'quota_exceeded' ? 'Storage is full. Delete some saved recipes.' : 'Could not save that. Try again.', true, el); return false; }
 }
 function renderRecipes() {
@@ -1272,6 +1315,7 @@ function renderPlan() {
       const lab = document.createElement('span'); lab.className = 'label'; lab.textContent = meal; slot.append(lab);
       if (entry) {
         const nm = document.createElement('span'); nm.className = 'meal-name'; nm.textContent = entry.name; slot.append(nm);
+        makeEditable(nm, entry.name, () => slotEditor(slot, d, meal));
         const x = document.createElement('button'); x.type = 'button'; x.className = 'del'; x.textContent = '✕';
         x.setAttribute('aria-label', `Clear ${meal} on ${shortDate(d)}`);
         x.onclick = () => { saveKitchen({ plan: { [d]: { [meal]: firebase.firestore.FieldValue.delete() } } }, $('#planStatus')); };
@@ -1309,7 +1353,7 @@ console.assert(paydaysBetween([{ kind: 'pay', date: '2026-10-02', repeat: 'biwee
 
 async function saveGoals(next, el = $('#goalStatus')) {
   if (!goalRef) { status('Sign in to save.', true, el); return false; }
-  try { await goalRef.set({ list: next }); return true; }
+  try { await saveList(goalRef, 'byId', 'list', goals, next, legacy.goals); return true; }
   catch { status('Could not save that. Try again.', true, el); return false; }
 }
 function goalPlan(g) {
@@ -1330,6 +1374,12 @@ function renderGoals() {
     d.innerHTML = '<div class="env-top"><span class="env-name"></span><span class="num muted"></span></div><div class="bar"><i></i></div><div class="muted plan-line"></div>'
       + '<div class="goal-move"><input inputmode="decimal" placeholder="Amount"><button type="button" class="small-btn primary">Add</button><button type="button" class="small-btn">Take out</button><button type="button" class="del">✕</button></div>';
     d.querySelector('.env-name').textContent = g.name;
+    makeEditable(d.querySelector('.env-name'), g.name, () => openEditor(d, [
+      { key: 'name', label: 'Saving for', type: 'text', value: g.name, required: true },
+      { key: 'target', label: 'Target amount', type: 'money', value: g.target, required: true },
+      { key: 'by', label: 'By (optional)', type: 'date', value: g.by || '' },
+    ], async v => { if (!(await saveGoals(goals.map(x => x.id === g.id ? { ...x, ...v } : x)))) return 'Could not save that. Try again.'; },
+    { onCancel: renderGoals, onDelete: () => saveGoals(goals.filter(x => x.id !== g.id)) }));
     if (saved >= g.target) { const p = document.createElement('span'); p.className = 'pill done'; p.textContent = 'Done'; d.querySelector('.env-name').append(' ', p); }
     d.querySelector('.num').textContent = `${fmt(saved)} / ${fmt(g.target)}`;
     d.querySelector('.bar i').style.width = Math.min(100, Math.max(0, saved / g.target * 100)) + '%';
@@ -1378,7 +1428,7 @@ let quick = [];      // [{id, label, cents, category}]
 let quickRef = null, quickEditing = false;
 async function saveQuick(next) {
   if (!quickRef) { status('Sign in to save.', true); return false; }
-  try { await quickRef.set({ list: next }); return true; } catch { status('Could not save that. Try again.', true); return false; }
+  try { await saveList(quickRef, 'byId', 'list', quick, next, legacy.quick); return true; } catch { status('Could not save that. Try again.', true); return false; }
 }
 function renderQuick() {
   const box = $('#quickChips'); box.replaceChildren();
@@ -1390,8 +1440,14 @@ function renderQuick() {
     b.firstChild.textContent = q.label; b.children[1].textContent = fmt(q.cents);
     if (quickEditing) {
       const x = document.createElement('span'); x.className = 'x'; x.textContent = '✕'; b.append(x);
-      b.setAttribute('aria-label', `Remove quick-add ${q.label}`);
-      b.onclick = () => saveQuick(quick.filter(z => z.id !== q.id));
+      b.setAttribute('aria-label', `Edit quick-add ${q.label}`);
+      const host = $('#quickEditHost'), close = () => host.replaceChildren();
+      b.onclick = () => openEditor(host, [
+        { key: 'label', label: 'Button label', type: 'text', value: q.label, required: true },
+        { key: 'cents', label: 'Amount', type: 'money', value: q.cents, required: true },
+        { key: 'category', label: 'Category', type: 'select', value: q.category, options: [...new Set([...(categories.length ? categories.map(c => c.name) : STARTER), q.category])].map(c => [c, c]) },
+      ], async v => { if (await saveQuick(quick.map(z => z.id === q.id ? { ...z, ...v } : z))) close(); else return 'Could not save that. Try again.'; },
+      { onCancel: close, onDelete: async () => { await saveQuick(quick.filter(z => z.id !== q.id)); close(); } });
     } else {
       b.setAttribute('aria-label', `Add ${q.label}, ${fmt(q.cents)}, today`);
       b.onclick = async () => {
@@ -1410,7 +1466,7 @@ function renderQuick() {
     box.append(b);
   }
 }
-$('#quickEdit').onclick = () => { quickEditing = !quickEditing; renderQuick(); };
+$('#quickEdit').onclick = () => { quickEditing = !quickEditing; $('#quickEditHost').replaceChildren(); renderQuick(); };
 
 // ---- Debt payoff ----
 let debts = [], debtExtra = 0;   // debts: [{id, name, balance (cents), apr (%), payment (cents), log: [{date, cents}]}]
@@ -1433,7 +1489,11 @@ function freeDate(months) { const t = new Date(); t.setMonth(t.getMonth() + mont
 
 async function saveDebts(patch, el = $('#debtStatus')) {
   if (!debtRef) { status('Sign in to save.', true, el); return false; }
-  try { await debtRef.set({ list: debts, extra: debtExtra, ...patch }); return true; }
+  try {
+    if (patch.list) await saveList(debtRef, 'byId', 'list', debts, patch.list, legacy.debts);
+    if ('extra' in patch) await debtRef.set({ extra: patch.extra }, { merge: true });
+    return true;
+  }
   catch { status('Could not save that. Try again.', true, el); return false; }
 }
 function renderDebts() {
@@ -1449,6 +1509,15 @@ function renderDebts() {
     el.innerHTML = '<div class="env-top"><span class="env-name"></span><span class="num muted"></span></div><div class="bar"><i></i></div><div class="muted plan-line"></div>'
       + '<div class="goal-move"><input inputmode="decimal" placeholder="Amount"><button type="button" class="small-btn primary">Log payment</button><button type="button" class="del">✕</button></div>';
     el.querySelector('.env-name').textContent = d.name;
+    makeEditable(el.querySelector('.env-name'), d.name, () => openEditor(el, [
+      { key: 'name', label: 'Name', type: 'text', value: d.name, required: true },
+      { key: 'balance', label: 'Balance owed now', type: 'money', value: d.balance },
+      { key: 'apr', label: 'Interest rate (APR %)', type: 'number', value: d.apr },
+      { key: 'payment', label: 'Monthly payment', type: 'money', value: d.payment, required: true },
+    ], async v => {
+      if (!(v.apr < 100)) return 'Enter the interest rate as a number like 24.99.';
+      if (!(await saveDebts({ list: debts.map(x => x.id === d.id ? { ...x, ...v } : x) }))) return 'Could not save that. Try again.';
+    }, { onCancel: renderDebts, onDelete: () => saveDebts({ list: debts.filter(x => x.id !== d.id) }) }));
     if (d.balance <= 0) { const p = document.createElement('span'); p.className = 'pill done'; p.textContent = 'Paid off'; el.querySelector('.env-name').append(' ', p); }
     el.querySelector('.num').textContent = `${fmt(d.balance)} left · ${d.apr}% APR`;
     el.querySelector('.bar i').style.width = (start ? Math.min(100, paid / start * 100) : 100) + '%';
@@ -1624,6 +1693,14 @@ function renderKcal() {
       const li = document.createElement('li'); li.className = 'kcal';
       li.innerHTML = '<span class="what"></span><span class="num"></span><button class="del" type="button">✕</button>';
       li.children[0].textContent = x.name; li.children[1].textContent = `${x.kcal.toLocaleString('en-US')} cal`;
+      makeEditable(li.children[0], x.name, () => openEditor(li, [
+        { key: 'meal', label: 'Meal', type: 'select', value: x.meal, options: KMEALS },
+        { key: 'name', label: 'What I ate', type: 'text', value: x.name, required: true },
+        { key: 'kcal', label: 'Calories', type: 'number', value: x.kcal, required: true },
+      ], async v => {
+        if (!(v.kcal > 0 && v.kcal < 10000)) return 'Enter the calories, like 450.';
+        await saveKcal({ days: { [d]: items.map(y => y.id === x.id ? { ...y, ...v, kcal: Math.round(v.kcal) } : y) } });
+      }, { onCancel: renderKcal, onDelete: () => saveKcal({ days: { [d]: items.filter(y => y.id !== x.id) } }) }));
       li.children[2].setAttribute('aria-label', `Remove ${x.name}`);
       li.children[2].onclick = () => saveKcal({ days: { [d]: items.filter(y => y.id !== x.id) } });
       ul.append(li);
@@ -2100,7 +2177,12 @@ console.assert(streak('a', { '2026-10-12': ['a'], '2026-10-13': ['a'] }, '2026-1
 async function saveHabits(next, el = $('#habitStatus')) {
   if (!habitRef) { status('Sign in to save.', true, el); return false; }
   // shortcut: keeps every day's ticks in one document (fine for years of daily use); prune old days if it ever fills.
-  try { await habitRef.set(next, { merge: true }); return true; }
+  try {
+    const { list, ...rest } = next;
+    if (list) await saveList(habitRef, 'listById', 'list', habits.list, list, legacy.habits);
+    if (Object.keys(rest).length) await habitRef.set(rest, { merge: true });
+    return true;
+  }
   catch (e) { status(e?.code === 'quota_exceeded' ? 'Storage is full.' : 'Could not save that. Try again.', true, el); return false; }
 }
 function renderHabits() {
@@ -2120,6 +2202,12 @@ function renderHabits() {
     cb.checked = isDone; cb.setAttribute('aria-label', `Done ${h.name} today`);
     cb.onchange = () => toggleHabit(h.id, cb.checked);
     li.querySelector('.what span').textContent = h.name;
+    makeEditable(li.querySelector('.what span'), h.name, () => openEditor(li, [
+      { key: 'name', label: 'Habit', type: 'text', value: h.name, required: true },
+    ], async v => {
+      if (habits.list.some(x => x.id !== h.id && sameName(x.name, v.name))) return `${v.name} is already on your list.`;
+      if (!(await saveHabits({ list: habits.list.map(x => x.id === h.id ? { ...x, name: v.name } : x) }))) return 'Could not save that. Try again.';
+    }, { onCancel: renderHabits, onDelete: () => saveHabits({ list: habits.list.filter(x => x.id !== h.id) }) }));
     li.querySelector('.streak').textContent = s ? `${s}-day streak` : 'No streak yet';
     for (let i = 6; i >= 0; i--) { const dot = document.createElement('i'); if ((habits.done[addDays(day, -i)] || []).includes(h.id)) dot.className = 'on'; li.querySelector('.week').append(dot); }
     const del = li.querySelector('.del');
@@ -2148,7 +2236,7 @@ $('#eventForm').addEventListener('submit', async ev => {
   if (!calRef) return status('Sign in to save.', true, el);
   const item = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), kind: $('#evKind').value, name, cents, date: selDate, repeat: $('#evRepeat').value };
   try {
-    await calRef.set({ events: [...events, item] });
+    await saveEvents([...events, item]);
     $('#evName').value = ''; $('#evAmount').value = '';
     status(`Added ${name} on ${shortDate(selDate)}.`, false, el);
   } catch (e) { status(e?.code === 'quota_exceeded' ? 'Storage is full. Delete some old items and try again.' : 'Could not save that. Try again.', true, el); }
@@ -2227,6 +2315,13 @@ function render() {
         const tag = document.createElement('span'); tag.className = 'muted'; tag.style.fontSize = '0.8rem'; tag.textContent = 'your share';
         li.children[3].replaceWith(tag); ul.append(li); continue;
       }
+      makeEditable(li.children[1], e.note || n, () => openEditor(li, [
+        { key: 'cents', label: 'Amount', type: 'money', value: e.cents, required: true },
+        { key: 'category', label: 'Category', type: 'select', value: e.category, options: [...new Set([...(categories.length ? categories.map(c => c.name) : STARTER), e.category])].map(c => [c, c]) },
+        { key: 'note', label: 'What for', type: 'text', value: e.note || '' },
+        { key: 'date', label: 'Date', type: 'date', value: e.date, required: true },
+      ], async v => { await expCol.doc(e.id).update({ ...v, month: v.date.slice(0, 7) }); allExp = null; },
+      { onCancel: render, onDelete: () => expCol.doc(e.id).delete() }));
       const del = li.children[3];
       del.setAttribute('aria-label', `Remove ${e.note || n} ${fmt(e.cents)}`);
       del.onclick = async () => {
@@ -2253,6 +2348,99 @@ function render() {
 }
 
 function status(msg, err, el = $('#status')) { el.textContent = msg; el.classList.toggle('err', !!err); }
+
+// ---- Editing any item in place ----
+// Tap an item's name to open it as a small form: fields filled in, plus Save, Cancel and (optionally) Delete.
+// fields: [{ key, label, type: 'text' | 'money' | 'number' | 'date' | 'select' | 'textarea', value, options: [[value, text]], required }]
+// onSave(values) does the save and returns an error message, or nothing when it worked.
+// onCancel redraws the section, which puts the row back the way it was.
+function openEditor(host, fields, onSave, { onDelete, onCancel }) {
+  const form = document.createElement('form'); form.className = 'plain editform'; form.autocomplete = 'off';
+  for (const f of fields) {
+    const lab = document.createElement('label'); lab.innerHTML = '<span class="label"></span>'; lab.firstChild.textContent = f.label;
+    let inp;
+    if (f.type === 'select') { inp = document.createElement('select'); for (const [v, t] of f.options) inp.append(new Option(t, v)); }
+    else if (f.type === 'textarea') inp = document.createElement('textarea');
+    else { inp = document.createElement('input'); inp.type = f.type === 'date' ? 'date' : 'text'; if (f.type === 'money' || f.type === 'number') inp.inputMode = 'decimal'; }
+    inp.name = f.key;
+    inp.value = f.type === 'money' ? (f.value ? (f.value / 100).toFixed(2) : '') : (f.value ?? '');
+    lab.append(inp); form.append(lab);
+  }
+  const bar = document.createElement('div'); bar.className = 'editbar';
+  bar.innerHTML = '<button type="submit" class="small-btn primary">Save</button><button type="button" class="small-btn">Cancel</button>';
+  const msg = document.createElement('div'); msg.className = 'status'; msg.setAttribute('role', 'status');
+  if (onDelete) {
+    const del = document.createElement('button'); del.type = 'button'; del.className = 'del'; del.textContent = 'Delete';
+    del.onclick = async () => {
+      if (!del.dataset.armed) { del.dataset.armed = '1'; del.textContent = 'Tap again to delete'; setTimeout(() => { delete del.dataset.armed; del.textContent = 'Delete'; }, 3000); return; }
+      try { await onDelete(); } catch { status('Could not delete that. Try again.', true, msg); }
+    };
+    bar.append(del);
+  }
+  form.append(bar, msg);
+  bar.children[1].onclick = () => onCancel();
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    const vals = {};
+    for (const f of fields) {
+      const raw = String(form.elements[f.key].value).trim();
+      if (f.required && !raw) return status(`${f.label} can't be empty.`, true, msg);
+      if (f.type === 'money') { const c = raw ? toCents(raw) : 0; if (raw && c == null || (f.required && !c)) return status(`${f.label}: enter an amount like 12.50.`, true, msg); vals[f.key] = c; }
+      else if (f.type === 'number') { const n = raw ? Number(raw) : 0; if (raw && !(n >= 0)) return status(`${f.label}: enter a number.`, true, msg); vals[f.key] = n; }
+      else vals[f.key] = raw;
+    }
+    try { const err = await onSave(vals); if (err) status(err, true, msg); }
+    catch { status('Could not save that. Try again.', true, msg); }
+  });
+  host.replaceChildren(form);
+  form.elements[0]?.focus();
+  return form;
+}
+// Make an item's text open its editor on tap (or Enter / Space for keyboard users).
+function makeEditable(el, what, open) {
+  el.classList.add('editable'); el.tabIndex = 0; el.setAttribute('role', 'button'); el.setAttribute('aria-label', `Edit ${what}`);
+  el.onclick = e => { e.stopPropagation(); open(); };
+  el.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } };
+}
+
+// ---- Lists stored item by item ----
+// Each list lives in a map of id → item (mapKey), so a change writes only the items that changed.
+// That keeps edits from two devices, or an offline phone with an older copy, from overwriting each other.
+// Older data stored the whole list as an array (legacyKey); it's read as-is and converted on the next save.
+const legacy = {};   // per list: is the saved data still in the old array format?
+const isLegacy = (d, mapKey, legacyKey) => !!(d && Array.isArray(d[legacyKey]) && !d[mapKey]);
+function readList(data, mapKey, legacyKey) {
+  if (data && data[mapKey]) return Object.values(data[mapKey]).filter(Boolean).sort((a, b) => String(a.id).localeCompare(String(b.id)));
+  return (data && Array.isArray(data[legacyKey])) ? data[legacyKey] : [];
+}
+// What to write to turn `prev` into `next`: {id: item} for added/changed, {id: null} for removed.
+function listChanges(prev, next) {
+  const before = new Map(prev.map(i => [i.id, JSON.stringify(i)])), out = {};
+  for (const it of next) if (before.get(it.id) !== JSON.stringify(it)) out[it.id] = it;
+  for (const id of before.keys()) if (!next.some(i => i.id === id)) out[id] = null;
+  return out;
+}
+console.assert((() => {
+  const c = listChanges([{ id: 'a', n: 1 }, { id: 'b', n: 2 }, { id: 'c', n: 3 }], [{ id: 'a', n: 1 }, { id: 'b', n: 9 }, { id: 'd', n: 4 }]);
+  return JSON.stringify(c) === JSON.stringify({ b: { id: 'b', n: 9 }, d: { id: 'd', n: 4 }, c: null })
+    && readList({ byId: { y: { id: 'y' }, x: { id: 'x' } } }, 'byId', 'items').map(i => i.id).join() === 'x,y'
+    && readList({ items: [{ id: 'q' }] }, 'byId', 'items')[0].id === 'q';
+})(), 'list storage self-check failed');
+async function saveList(ref, mapKey, legacyKey, prev, next, legacy) {
+  const FVx = firebase.firestore.FieldValue, FP = firebase.firestore.FieldPath;
+  if (legacy) {   // first save in the new format: write the whole list as a map and drop the old array
+    return ref.set({ [mapKey]: Object.fromEntries(next.map(i => [i.id, i])), [legacyKey]: FVx.delete() }, { merge: true });
+  }
+  const changes = Object.entries(listChanges(prev, next));
+  if (!changes.length) return;
+  // update() with a field path replaces each item whole (no deep merge), so removed fields really go away.
+  const args = changes.flatMap(([id, it]) => [new FP(mapKey, id), it === null ? FVx.delete() : it]);
+  try { await ref.update(...args); }
+  catch (e) {   // the document doesn't exist yet (first item ever)
+    if (e?.code !== 'not-found') throw e;
+    await ref.set({ [mapKey]: Object.fromEntries(next.map(i => [i.id, i])) }, { merge: true });
+  }
+}
 
 
 $('#prev').onclick = () => shiftMonth(-1);
@@ -2305,6 +2493,15 @@ function renderTips(total) {
     li.children[1].firstChild.textContent = t.note || 'Cash tips';
     li.children[1].lastChild.textContent = t.hours > 0 ? `${hrs(t.hours)} · ${fmt(Math.round(t.cents / t.hours))}/hr` : '';
     li.children[2].textContent = fmt(t.cents);
+    makeEditable(li.children[1].firstChild, t.note || 'Cash tips', () => openEditor(li, [
+      { key: 'cents', label: 'Amount', type: 'money', value: t.cents, required: true },
+      { key: 'hours', label: 'Hours worked', type: 'number', value: t.hours || '' },
+      { key: 'note', label: 'What for', type: 'text', value: t.note || '' },
+      { key: 'date', label: 'Date', type: 'date', value: t.date, required: true },
+    ], async v => {
+      if (v.hours > 24) return 'Hours worked should be 24 or less.';
+      await tipCol.doc(t.id).update({ ...v, hours: v.hours || firebase.firestore.FieldValue.delete(), month: v.date.slice(0, 7) });
+    }, { onCancel: render, onDelete: () => tipCol.doc(t.id).delete() }));
     const del = li.children[3];
     del.setAttribute('aria-label', `Remove tips ${fmt(t.cents)} on ${shortDate(t.date)}`);
     del.onclick = async () => {
@@ -2385,29 +2582,29 @@ function startData(db, uid) {
   subscribeMonth();
   $('#icsBox').hidden = false;
   foodRef = db.doc(`data/users/${uid}/food`);
-  foodRef.onSnapshot(s => { food = s.exists ? (s.data().items || []) : []; renderFood(); },
+  foodRef.onSnapshot(s => { const d = s.data(); legacy.food = isLegacy(d, 'byId', 'items'); food = readList(d, 'byId', 'items'); renderFood(); },
     () => status('Lost connection to your saved data. Reload the page.', true, $('#foodStatus')));
   kcalRef = db.doc(`data/users/${uid}/calories`);
   kcalRef.onSnapshot(s => { const d = s.exists ? s.data() : {}; kcal = { goal: d.goal || 0, days: d.days || {} }; renderKcal(); },
     () => status('Lost connection to your saved data. Reload the page.', true, $('#kcalStatus')));
   kitchenRef = db.doc(`data/users/${uid}/kitchen`);
-  kitchenRef.onSnapshot(s => { const d = s.exists ? s.data() : {}; kitchen = { recipes: d.recipes || [], plan: d.plan || {}, prefs: d.prefs || {} }; renderKitchen(); },
+  kitchenRef.onSnapshot(s => { const d = s.exists ? s.data() : {}; legacy.recipes = isLegacy(d, 'recipesById', 'recipes'); kitchen = { recipes: readList(d, 'recipesById', 'recipes'), plan: d.plan || {}, prefs: d.prefs || {} }; renderKitchen(); },
     () => status('Lost connection to your saved data. Reload the page.', true, $('#planStatus')));
   quickRef = db.doc(`data/users/${uid}/quick`);
-  quickRef.onSnapshot(s => { quick = s.exists ? (s.data().list || []) : []; renderQuick(); },
+  quickRef.onSnapshot(s => { const d = s.data(); legacy.quick = isLegacy(d, 'byId', 'list'); quick = readList(d, 'byId', 'list'); renderQuick(); },
     () => status('Lost connection to your saved data. Reload the page.', true));
   debtRef = db.doc(`data/users/${uid}/debts`);
-  debtRef.onSnapshot(s => { const d = s.exists ? s.data() : {}; debts = d.list || []; debtExtra = d.extra || 0; renderDebts(); },
+  debtRef.onSnapshot(s => { const d = s.exists ? s.data() : {}; legacy.debts = isLegacy(d, 'byId', 'list'); debts = readList(d, 'byId', 'list'); debtExtra = d.extra || 0; renderDebts(); },
     () => status('Lost connection to your saved data. Reload the page.', true, $('#debtStatus')));
   $('#backupBox').hidden = false;
   goalRef = db.doc(`data/users/${uid}/goals`);
-  goalRef.onSnapshot(s => { goals = s.exists ? (s.data().list || []) : []; render(); },
+  goalRef.onSnapshot(s => { const d = s.data(); legacy.goals = isLegacy(d, 'byId', 'list'); goals = readList(d, 'byId', 'list'); render(); },
     () => status('Lost connection to your saved data. Reload the page.', true, $('#goalStatus')));
   habitRef = db.doc(`data/users/${uid}/habits`);
-  habitRef.onSnapshot(s => { const d = s.exists ? s.data() : {}; habits = { list: d.list || [], done: d.done || {} }; renderHabits(); },
+  habitRef.onSnapshot(s => { const d = s.exists ? s.data() : {}; legacy.habits = isLegacy(d, 'listById', 'list'); habits = { list: readList(d, 'listById', 'list'), done: d.done || {} }; renderHabits(); },
     () => status('Lost connection to your saved data. Reload the page.', true, $('#habitStatus')));
   calRef = db.doc(`data/users/${uid}/calendar`);
-  calRef.onSnapshot(s => { events = s.exists ? (s.data().events || []) : []; render(); loadWrap(); },
+  calRef.onSnapshot(s => { const d = s.data(); legacy.events = isLegacy(d, 'byId', 'events'); events = readList(d, 'byId', 'events'); render(); loadWrap(); },
     () => status('Lost connection to your saved data. Reload the page.', true, $('#evStatus')));
 }
 </script>
@@ -2529,6 +2726,11 @@ function renderShared() {
     li.children[0].textContent = it.qty || '';
     li.querySelector('.what span').textContent = it.name;
     li.querySelector('.what small').textContent = `Added by ${nameOf(it.by)}`;
+    makeEditable(li.querySelector('.what span'), it.name, () => openEditor(li, [
+      { key: 'name', label: 'Item', type: 'text', value: it.name, required: true },
+      { key: 'qty', label: 'How much', type: 'text', value: it.qty || '' },
+    ], async v => { await fdb.doc(`households/${hhId}/shopping/${it.id}`).update(v); },
+    { onCancel: renderShared, onDelete: () => fdb.doc(`households/${hhId}/shopping/${it.id}`).delete() }));
     const [, , got, del] = li.children;
     got.setAttribute('aria-label', `Got ${it.name}, move to my Already have`);
     del.setAttribute('aria-label', `Remove ${it.name} from the shared list`);
@@ -2727,6 +2929,22 @@ function renderHome() {
     li.querySelector('.what small').textContent = e.kind === 'settle' ? 'Settled up'
       : `${Name(e.paidBy)} paid · ` + (Object.keys(e.split || {}).includes(e.paidBy) ? 'split equally' : 'the others owe it');
     li.children[2].textContent = fmt(e.cents);
+    makeEditable(li.querySelector('.what span'), e.desc || 'this payback', () => openEditor(li, e.kind === 'settle' ? [
+      { key: 'cents', label: 'Amount paid back', type: 'money', value: e.cents, required: true },
+      { key: 'date', label: 'Date', type: 'date', value: e.date, required: true },
+    ] : [
+      { key: 'desc', label: 'What for', type: 'text', value: e.desc, required: true },
+      { key: 'cents', label: 'Amount', type: 'money', value: e.cents, required: true },
+      { key: 'paidBy', label: 'Who paid', type: 'select', value: e.paidBy, options: hh.members.map(m => [m, m === fuid ? 'Me' : Name(m)]) },
+      { key: 'how', label: 'Split', type: 'select', value: Object.keys(e.split || {}).includes(e.paidBy) ? 'equal' : 'other', options: [['equal', 'Split equally'], ['other', 'The others owe all of it']] },
+      { key: 'date', label: 'Date', type: 'date', value: e.date, required: true },
+    ], async v => {
+      if (e.kind === 'settle') { await hhCol('expenses').doc(e.id).update({ cents: v.cents, date: v.date, month: v.date.slice(0, 7) }); return; }
+      const who = v.how === 'equal' ? hh.members : hh.members.filter(m => m !== v.paidBy);
+      if (!who.length) return 'There is nobody else to split with.';
+      // update() replaces the split map whole, so old shares never linger.
+      await hhCol('expenses').doc(e.id).update({ desc: v.desc, cents: v.cents, paidBy: v.paidBy, split: splitEqual(v.cents, who), date: v.date, month: v.date.slice(0, 7) });
+    }, { onCancel: renderHome, onDelete: () => hhCol('expenses').doc(e.id).delete() }));
     li.children[3].setAttribute('aria-label', `Delete ${e.desc || 'this entry'}`);
     armDelete(li.children[3], 'Delete', () => hhCol('expenses').doc(e.id).delete().catch(() => status('Could not delete that. Try again.', true, $('#splitStatus'))));
     ul.append(li);
@@ -2745,6 +2963,14 @@ function renderHome() {
     tag.textContent = paid ? 'Paid' : b.day < dayNum ? 'Overdue' : `Due the ${ordinal(b.day)}`;
     li.children[0].append(tag);
     li.querySelector('.what span').textContent = b.name;
+    makeEditable(li.querySelector('.what span'), b.name, () => openEditor(li, [
+      { key: 'name', label: 'Bill', type: 'text', value: b.name, required: true },
+      { key: 'cents', label: 'Monthly amount', type: 'money', value: b.cents, required: true },
+      { key: 'day', label: 'Due on day of the month', type: 'number', value: b.day, required: true },
+    ], async v => {
+      if (!(v.day >= 1 && v.day <= 31)) return "Enter the day of the month it's due, 1 to 31.";
+      await hhCol('bills').doc(b.id).update({ ...v, day: Math.round(v.day) });
+    }, { onCancel: renderHome, onDelete: () => hhCol('bills').doc(b.id).delete() }));
     li.querySelector('.what small').textContent = paid ? `${Name(paid.paidBy)} paid it ${shortDate(paid.date)}, split equally` : `${fmt(Math.round(b.cents / hh.members.length))} each`;
     if (!paid) {
       const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'small-btn primary'; btn.textContent = 'I paid it';
@@ -2772,6 +2998,21 @@ function renderHome() {
     tag.textContent = st.status === 'overdue' ? 'Overdue' : st.status === 'today' ? 'Today' : shortDate(st.due);
     li.children[0].append(tag);
     li.querySelector('.what span').textContent = c.name;
+    makeEditable(li.querySelector('.what span'), c.name, () => {
+      const form = openEditor(li, [
+        { key: 'name', label: 'Chore', type: 'text', value: c.name, required: true },
+        { key: 'every', label: 'How often', type: 'select', value: String(c.every), options: [['1', 'Every day'], ['7', 'Every week'], ['14', 'Every 2 weeks'], ['28', 'Every 4 weeks']] },
+      ], async v => { await hhCol('chores').doc(c.id).update({ name: v.name, every: Number(v.every) }); },
+      { onCancel: renderHome, onDelete: () => hhCol('chores').doc(c.id).delete() });
+      const last = Object.keys(c.done || {}).sort().pop();
+      if (last) {   // tapped Done by mistake? this puts the last one back
+        const undo = document.createElement('button'); undo.type = 'button'; undo.className = 'small-btn';
+        undo.textContent = `Undo Done for ${shortDate(last)}`;
+        undo.onclick = () => hhCol('chores').doc(c.id).update(new firebase.firestore.FieldPath('done', last), firebase.firestore.FieldValue.delete())
+          .catch(() => status('Could not undo that. Try again.', true, $('#choreStatus')));
+        form.querySelector('.editbar').insertBefore(undo, form.querySelector('.editbar .del'));
+      }
+    });
     li.querySelector('.what small').textContent = `${mine ? 'Your' : `${Name(st.who)}'s`} turn · every ${({ 1: 'day', 7: 'week', 14: '2 weeks', 28: '4 weeks' })[c.every] || `${c.every} days`}`;
     const done = li.children[2];
     done.textContent = 'Done'; if (mine && st.status !== 'upcoming') done.classList.add('primary');
@@ -2794,6 +3035,10 @@ function renderNotes() {
     const li = document.createElement('li'); li.className = 'kcal';
     li.innerHTML = '<span class="what"><span style="white-space:pre-wrap"></span><small></small></span><span></span><button class="del" type="button">✕</button>';
     li.querySelector('.what span').textContent = n.text;
+    makeEditable(li.querySelector('.what span'), 'this note', () => openEditor(li, [
+      { key: 'text', label: 'Note', type: 'textarea', value: n.text, required: true },
+    ], async v => { await hhCol('notes').doc(n.id).update({ text: v.text }); },
+    { onCancel: renderNotes, onDelete: () => hhCol('notes').doc(n.id).delete() }));
     li.querySelector('.what small').textContent = `${Name(n.by)} · ${shortDate(localDay(n.created))}`;
     const del = li.querySelector('.del');
     del.setAttribute('aria-label', 'Delete this note');
