@@ -232,7 +232,6 @@ textarea { font: inherit; color: var(--fg); background: var(--bg); border: 1px s
     <button type="button" id="tabToday" aria-pressed="false">Today</button>
     <button type="button" id="tabMoney" aria-pressed="true">Money</button>
     <button type="button" id="tabFood" aria-pressed="false">Food</button>
-    <button type="button" id="tabMeals" aria-pressed="false">Meals</button>
     <button type="button" id="tabHabits" aria-pressed="false">Habits</button>
     <button type="button" id="tabInsights" aria-pressed="false">Insights</button>
   </nav>
@@ -254,70 +253,6 @@ textarea { font: inherit; color: var(--fg); background: var(--bg); border: 1px s
 
   <div class="notice" id="notice" hidden>You're offline or signed out. Changes will save once you're back.</div>
   <div class="alert" id="alert" role="status" hidden></div>
-
-  <section class="tabpane" id="mealsPane" hidden aria-label="Meals">
-    <section class="card" aria-label="Calories">
-      <div class="env-top">
-        <h2>Calories</h2>
-        <div class="month">
-          <button type="button" class="icon" id="calPrev" aria-label="Previous day">‹</button>
-          <span id="calDayLabel" style="min-width:7em"></span>
-          <button type="button" class="icon" id="calNext" aria-label="Next day">›</button>
-        </div>
-      </div>
-      <div class="env-top">
-        <div><span class="big num" id="kcalTotal">0</span> <span class="muted" id="kcalOf"></span></div>
-        <label class="inline-field"><span class="muted">Daily goal</span><input id="kcalGoal" inputmode="numeric" placeholder="2000"></label>
-      </div>
-      <div class="bar" id="kcalBar"><i style="width:0"></i></div>
-      <div class="muted" id="kcalLeft"></div>
-      <form class="plain" id="kcalForm" autocomplete="off">
-        <div class="row">
-          <label><span class="label">Meal</span><select id="kcalMeal"><option value="breakfast">Breakfast</option><option value="lunch">Lunch</option><option value="dinner">Dinner</option><option value="other">Other</option></select></label>
-          <label><span class="label">What I ate</span><input id="kcalName" list="recipeNames" maxlength="60" placeholder="Turkey sandwich" required></label>
-        </div>
-        <div class="row">
-          <label><span class="label">Calories</span><input id="kcalAmt" inputmode="numeric" placeholder="450"></label>
-        </div>
-        <button class="primary" type="submit">Log food</button>
-        <div class="status" id="kcalStatus" role="status"></div>
-      </form>
-      <div id="kcalMeals" class="kmeals"></div>
-      <datalist id="recipeNames"></datalist>
-    </section>
-
-    <section class="card" aria-label="Weekly meal plan">
-      <div class="env-top">
-        <h2>This week's meals</h2>
-        <div class="month">
-          <button type="button" class="icon" id="weekPrev" aria-label="Previous week">‹</button>
-          <span id="weekLabel" style="min-width:8em"></span>
-          <button type="button" class="icon" id="weekNext" aria-label="Next week">›</button>
-        </div>
-      </div>
-      <div id="plan" class="plan"></div>
-      <div class="status" id="planStatus" role="status"></div>
-    </section>
-
-
-    <section class="card" aria-label="Saved recipes">
-      <h2 id="recipesTitle">Saved recipes</h2>
-      <div id="recipes" class="meals"></div>
-      <details class="addbox"><summary>+ Add a recipe</summary>
-        <form class="plain" id="recipeForm" autocomplete="off">
-          <label><span class="label">Recipe name</span><input id="recName" maxlength="80" placeholder="Chicken stir fry" required></label>
-          <div class="row">
-            <label><span class="label">Minutes (optional)</span><input id="recMin" inputmode="numeric" placeholder="25"></label>
-            <label><span class="label">Calories per serving (optional)</span><input id="recKcal" inputmode="numeric" placeholder="520"></label>
-          </div>
-          <label><span class="label">Ingredients, separated by commas</span><input id="recIng" placeholder="Chicken, rice, broccoli, soy sauce"></label>
-          <label><span class="label">Steps, one per line (optional)</span><textarea id="recSteps" placeholder="Cook the rice&#10;Fry the chicken&#10;Add vegetables and sauce"></textarea></label>
-          <button class="primary" type="submit">Save recipe</button>
-        </form>
-      </details>
-    </section>
-
-  </section>
 
   <section class="tabpane" id="todayPane" hidden aria-label="Today">
     <h2 id="todayDate"></h2>
@@ -402,6 +337,36 @@ textarea { font: inherit; color: var(--fg); background: var(--bg); border: 1px s
   </section>
 
   <section class="tabpane" id="foodPane" hidden aria-label="Food">
+    <section class="card" aria-label="Calories">
+      <div class="env-top">
+        <h2>Calories</h2>
+        <div class="month">
+          <button type="button" class="icon" id="calPrev" aria-label="Previous day">‹</button>
+          <span id="calDayLabel" style="min-width:7em"></span>
+          <button type="button" class="icon" id="calNext" aria-label="Next day">›</button>
+        </div>
+      </div>
+      <div class="env-top">
+        <div><span class="big num" id="kcalTotal">0</span> <span class="muted" id="kcalOf"></span></div>
+        <label class="inline-field"><span class="muted">Daily goal</span><input id="kcalGoal" inputmode="numeric" placeholder="2000"></label>
+      </div>
+      <div class="bar" id="kcalBar"><i style="width:0"></i></div>
+      <div class="muted" id="kcalLeft"></div>
+      <form class="plain" id="kcalForm" autocomplete="off">
+        <div class="row">
+          <label><span class="label">Meal</span><select id="kcalMeal"><option value="breakfast">Breakfast</option><option value="lunch">Lunch</option><option value="dinner">Dinner</option><option value="other">Other</option></select></label>
+          <label><span class="label">What I ate</span><input id="kcalName" list="recipeNames" maxlength="60" placeholder="Turkey sandwich" required></label>
+        </div>
+        <div class="row">
+          <label><span class="label">Calories</span><input id="kcalAmt" inputmode="numeric" placeholder="450"></label>
+        </div>
+        <button class="primary" type="submit">Log food</button>
+        <div class="status" id="kcalStatus" role="status"></div>
+      </form>
+      <div id="kcalMeals" class="kmeals"></div>
+      <datalist id="recipeNames"></datalist>
+    </section>
+
     <section class="card" aria-label="Shopping list">
       <h2 id="needTitle">Shopping list</h2>
       <ul class="ledger" id="needList"></ul>
@@ -423,6 +388,38 @@ textarea { font: inherit; color: var(--fg); background: var(--bg); border: 1px s
       <button class="primary" type="submit">Add item</button>
       <div class="status" id="foodStatus" role="status"></div>
     </form>
+
+    <section class="card" aria-label="Weekly meal plan">
+      <div class="env-top">
+        <h2>This week's meals</h2>
+        <div class="month">
+          <button type="button" class="icon" id="weekPrev" aria-label="Previous week">‹</button>
+          <span id="weekLabel" style="min-width:8em"></span>
+          <button type="button" class="icon" id="weekNext" aria-label="Next week">›</button>
+        </div>
+      </div>
+      <div id="plan" class="plan"></div>
+      <div class="status" id="planStatus" role="status"></div>
+    </section>
+
+
+    <section class="card" aria-label="Saved recipes">
+      <h2 id="recipesTitle">Saved recipes</h2>
+      <div id="recipes" class="meals"></div>
+      <details class="addbox"><summary>+ Add a recipe</summary>
+        <form class="plain" id="recipeForm" autocomplete="off">
+          <label><span class="label">Recipe name</span><input id="recName" maxlength="80" placeholder="Chicken stir fry" required></label>
+          <div class="row">
+            <label><span class="label">Minutes (optional)</span><input id="recMin" inputmode="numeric" placeholder="25"></label>
+            <label><span class="label">Calories per serving (optional)</span><input id="recKcal" inputmode="numeric" placeholder="520"></label>
+          </div>
+          <label><span class="label">Ingredients, separated by commas</span><input id="recIng" placeholder="Chicken, rice, broccoli, soy sauce"></label>
+          <label><span class="label">Steps, one per line (optional)</span><textarea id="recSteps" placeholder="Cook the rice&#10;Fry the chicken&#10;Add vegetables and sauce"></textarea></label>
+          <button class="primary" type="submit">Save recipe</button>
+        </form>
+      </details>
+    </section>
+
     <section class="card" aria-label="Expiry calendar">
       <div class="env-top">
         <h2>Expiry calendar</h2>
@@ -848,7 +845,7 @@ $('#icsBtn').onclick = async () => {
 // ---- Food: shopping list and what's already in the kitchen ----
 let food = [];        // [{id, name, status: 'need'|'have'}]
 let foodRef = null;
-const TABS = ['today', 'money', 'food', 'meals', 'habits', 'insights'];
+const TABS = ['today', 'money', 'food', 'habits', 'insights'];
 const cap = s => s[0].toUpperCase() + s.slice(1);
 function showTab(name) {
   for (const t of TABS) {
@@ -918,7 +915,7 @@ function renderFood() {
     const list = $(listId); list.replaceChildren();
     if (!items.length) {
       const li = document.createElement('li'); li.className = 'muted'; li.style.display = 'block';
-      li.textContent = st === 'need' ? 'Nothing to buy. Add items above, or tap "Ran out" on something you have.' : 'Nothing here yet. Tick items off your shopping list as you buy them.';
+      li.textContent = st === 'need' ? 'Nothing to buy. Add items below, or tap "Ran out" on something you have.' : 'Nothing here yet. Tick items off your shopping list as you buy them.';
       list.append(li);
     }
     for (const f of items) {
@@ -1561,7 +1558,7 @@ function renderToday() {
 
   // Calories
   const eaten = kcalSum(day), goal = kcal.goal;
-  const cal = tcard('Calories', 'Log food', () => goTo('meals', '#kcalName'));
+  const cal = tcard('Calories', 'Log food', () => goTo('food', '#kcalName'));
   cal.append(tline(goal ? `${eaten.toLocaleString('en-US')} of ${goal.toLocaleString('en-US')} cal` : `${eaten.toLocaleString('en-US')} cal eaten`, 'big num'));
   if (goal) { const bar = document.createElement('div'); bar.className = 'bar'; bar.innerHTML = '<i></i>'; setBar(bar, eaten, goal); cal.append(bar);
     cal.append(tline(eaten <= goal ? `${(goal - eaten).toLocaleString('en-US')} cal left` : `${(eaten - goal).toLocaleString('en-US')} cal over`, 'muted')); }
@@ -1569,7 +1566,7 @@ function renderToday() {
 
   // Meals planned today
   const plan = kitchen.plan[day] || {};
-  const meals = tcard('Meals today', 'Plan', () => goTo('meals'));
+  const meals = tcard('Meals today', 'Plan', () => goTo('food'));
   meals.append(plan.lunch || plan.dinner ? tlist([['Lunch', plan.lunch?.name || '—'], ['Dinner', plan.dinner?.name || '—']]) : tline('Nothing planned for today.', 'muted'));
   box.append(meals);
 
@@ -2118,7 +2115,8 @@ function subscribeMonth() {
 }
 
 render(); renderFood(); renderHabits();
-{ let t = null; try { t = localStorage.getItem('tab'); } catch {} showTab(TABS.includes(t) ? t : 'today'); }
+{ let t = null; try { t = localStorage.getItem('tab'); } catch {} if (t === 'meals') t = 'food'; // Meals was merged into Food
+  showTab(TABS.includes(t) ? t : 'today'); }
 renderKitchen();
 renderKcal();
 function startData(db, uid) {
