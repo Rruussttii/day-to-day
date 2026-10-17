@@ -20,17 +20,17 @@
 /* Layout: one narrow column, like a stack of cash envelopes — month summary, envelopes, add form, ledger. */
 :root {
   --bg: #eef1ee; --card: #fbfcfa; --fg: #1d2a24; --muted: #5e6d65; --line: #d3dbd5;
-  --accent: #1f7a54; --accent-fg: #ffffff; --warn: #b7791f; --over: #c0392b; --track: #dde5df; --bill: #a3466f; --bill-ink: #a3466f; --in: #2f6fb3; --out: #c97a22;
+  --accent: #1f7a54; --accent-fg: #ffffff; --warn: #b7791f; --over: #c0392b; --good: #15803d; --bad: #c0392b; --track: #dde5df; --bill: #a3466f; --bill-ink: #a3466f; --in: #2f6fb3; --out: #c97a22;
   --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
   --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   --bg: #121815; --card: #1a221e; --fg: #e4ebe6; --muted: #93a39a; --line: #2c3832;
-  --accent: #4cc38a; --accent-fg: #0d1a13; --warn: #e0a84a; --over: #ef6b5d; --track: #26302b; --bill: #bd5a8c; --bill-ink: #e58fb6; --in: #4a86cc; --out: #c27c35; color-scheme: dark } }
+  --accent: #4cc38a; --accent-fg: #0d1a13; --warn: #e0a84a; --over: #ef6b5d; --good: #4ade80; --bad: #f87171; --track: #26302b; --bill: #bd5a8c; --bill-ink: #e58fb6; --in: #4a86cc; --out: #c27c35; color-scheme: dark } }
 :root[data-theme="dark"] {
   --bg: #121815; --card: #1a221e; --fg: #e4ebe6; --muted: #93a39a; --line: #2c3832;
-  --accent: #4cc38a; --accent-fg: #0d1a13; --warn: #e0a84a; --over: #ef6b5d; --track: #26302b; --bill: #bd5a8c; --bill-ink: #e58fb6; --in: #4a86cc; --out: #c27c35; color-scheme: dark }
+  --accent: #4cc38a; --accent-fg: #0d1a13; --warn: #e0a84a; --over: #ef6b5d; --good: #4ade80; --bad: #f87171; --track: #26302b; --bill: #bd5a8c; --bill-ink: #e58fb6; --in: #4a86cc; --out: #c27c35; color-scheme: dark }
 
 /* Themes (Settings). Each sets the whole look in a light and a dark version; all text pairs meet WCAG AA. */
 :root[data-palette="ocean"] { --bg: #e9eff5; --card: #f9fbfd; --fg: #15212c; --muted: #526375; --line: #cdd8e3; --track: #d9e3ec; --accent: #0e6f8c; --accent-fg: #ffffff; }
@@ -227,7 +227,8 @@ details.recipe summary { font-family: var(--body); font-weight: 600; }
 .recap th { text-align: left; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; padding: 4px 0; }
 .recap td { padding: 5px 0; border-top: 1px solid var(--line); }
 .recap td.n, .recap th.n { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
-.up { color: var(--over); } .down { color: var(--accent); }
+.up { color: var(--bad); } .down { color: var(--good); }
+.pos { color: var(--good); } .neg { color: var(--bad); }
 .goals { display: grid; gap: 4px; }
 .goal { display: grid; gap: 6px; padding: 12px 0; border-bottom: 1px dashed var(--line); }
 .goal-move { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
@@ -950,7 +951,7 @@ function renderSoon() {
     li.querySelector('.kind').textContent = ev.kind === 'pay' ? 'Pay' : 'Bill';
     li.querySelector('.what span').textContent = ev.name;
     li.querySelector('.what small').textContent = `${ev.kind === 'pay' ? 'Payday' : 'Due'} ${when} · ${shortDate(d)}`;
-    li.querySelector('.num').textContent = fmt(ev.cents);
+    li.querySelector('.num').replaceChildren(money(ev.kind === 'pay' ? ev.cents : -ev.cents));
     if (ev.kind === 'bill') {
       // Reminder tiers: within 24 hours, within 3 days, within 7 days.
       const tier = days <= 1 ? ['over', 'Due within 24 hours'] : days <= 3 ? ['warn', 'Due within 3 days'] : ['', 'Due this week'];
@@ -1023,7 +1024,7 @@ function renderCal() {
     }
     li.querySelector('.what span').textContent = ev.name;
     li.querySelector('.what small').textContent = REPEAT_LABEL[ev.repeat] ? `Repeats ${REPEAT_LABEL[ev.repeat]}` : '';
-    li.querySelector('.num').textContent = fmt(ev.cents);
+    li.querySelector('.num').replaceChildren(money(ev.kind === 'pay' ? ev.cents : -ev.cents));
     const del = li.querySelector('.del');
     del.setAttribute('aria-label', `Delete ${ev.name}`);
     del.onclick = async () => {
@@ -1526,7 +1527,7 @@ function renderGoals() {
     ], async v => { if (!(await saveGoals(goals.map(x => x.id === g.id ? { ...x, ...v } : x)))) return 'Could not save that. Try again.'; },
     { onCancel: renderGoals, onDelete: () => saveGoals(goals.filter(x => x.id !== g.id)) }));
     if (saved >= g.target) { const p = document.createElement('span'); p.className = 'pill done'; p.textContent = 'Done'; d.querySelector('.env-name').append(' ', p); }
-    d.querySelector('.num').textContent = `${fmt(saved)} / ${fmt(g.target)}`;
+    d.querySelector('.num').replaceChildren(money(saved, { sign: false }), ` / ${fmt(g.target)}`);
     d.querySelector('.bar i').style.width = Math.min(100, Math.max(0, saved / g.target * 100)) + '%';
     d.querySelector('.plan-line').textContent = goalPlan(g);
     const [inp, add, take, del] = d.querySelector('.goal-move').children;
@@ -1664,7 +1665,7 @@ function renderDebts() {
       if (!(await saveDebts({ list: debts.map(x => x.id === d.id ? { ...x, ...v } : x) }))) return 'Could not save that. Try again.';
     }, { onCancel: renderDebts, onDelete: () => saveDebts({ list: debts.filter(x => x.id !== d.id) }) }));
     if (d.balance <= 0) { const p = document.createElement('span'); p.className = 'pill done'; p.textContent = 'Paid off'; el.querySelector('.env-name').append(' ', p); }
-    el.querySelector('.num').textContent = `${fmt(d.balance)} left · ${d.apr}% APR`;
+    el.querySelector('.num').replaceChildren(d.balance > 0 ? money(-d.balance) : money(0), ` left · ${d.apr}% APR`);
     el.querySelector('.bar i').style.width = (start ? Math.min(100, paid / start * 100) : 100) + '%';
     let line;
     if (d.balance <= 0) line = 'Debt-free on this one.';
@@ -1919,7 +1920,7 @@ function renderToday() {
   if (tabOn('money')) {
   const money = tcard('Money', 'Add expense', () => goTo('money', '#amount'));
   if (lastMoney && lastMoney.month === day.slice(0, 7)) {
-    const big = tline(fmt(lastMoney.left), 'big num'); if (lastMoney.left < 0) big.style.color = 'var(--over)';
+    const big = tline(fmt(lastMoney.left), 'big num'); big.style.color = lastMoney.left < 0 ? 'var(--bad)' : lastMoney.left > 0 ? 'var(--good)' : '';
     money.append(big, tline(`left to spend this month${lastMoney.tipsTotal ? `, including ${fmt(lastMoney.tipsTotal)} in tips` : ''}`, 'muted'));
   } else money.append(tline('Open Money and go to this month to see what\'s left.', 'muted'));
   box.append(money);
@@ -1929,7 +1930,7 @@ function renderToday() {
   const bills = tcard('Next 7 days', 'Calendar', () => goTo('money'));
   bills.append(soon.length ? tlist(soon.map(({ ev, d }) => {
     const n = Math.round((ud(d) - ud(day)) / DAY), when = n === 0 ? 'today' : n === 1 ? 'tomorrow' : `in ${n} days`;
-    return [`${ev.kind === 'pay' ? 'Payday' : ev.name} · ${when}`, `${ev.kind === 'pay' ? '+' : ''}${fmt(ev.cents)}`, ev.kind === 'pay' ? 'down' : n <= 1 ? 'up' : ''];
+    return [`${ev.kind === 'pay' ? 'Payday' : ev.name} · ${when}`, `${ev.kind === 'pay' ? '+' : '−'}${fmt(ev.cents)}`, ev.kind === 'pay' ? 'down' : 'up'];
   })) : tline('No unpaid bills or paydays this week.', 'muted'));
   box.append(bills);
   }
@@ -1974,7 +1975,8 @@ function renderToday() {
   if (typeof hh !== 'undefined' && hh && tabOn('home')) {
     const home = tcard('Home', 'Open', () => goTo('home'));
     const myChores = chores.map(c => ({ c, st: choreState(c, day) })).filter(x => x.st.who === fuid && x.st.status !== 'upcoming');
-    home.append(tline(myBalanceText(), 'muted'));
+    const myNet = hhBalances(splits, hh.members)[fuid];
+    home.append(tline(myBalanceText(), myNet > 0 ? 'pos' : myNet < 0 ? 'neg' : 'muted'));
     home.append(myChores.length ? tlist(myChores.map(({ c, st }) => [c.name, st.status === 'overdue' ? 'overdue' : 'today', st.status === 'overdue' ? 'up' : '']))
       : tline('No chores due for you today.', 'muted'));
     box.append(home);
@@ -2166,6 +2168,7 @@ function renderInsights() {
   // 1. Money in vs out
   const pickFlow = i => {
     insPick = i; const s = st[i];
+    $('#flowDetail').style.color = s.kept > 0 ? 'var(--good)' : s.kept < 0 ? 'var(--bad)' : '';
     $('#flowDetail').textContent = `${monthName(s.m)}${i === n - 1 ? ' (so far)' : ''}: in ${fmt(s.inn)} · out ${fmt(s.out)} · ${s.kept >= 0 ? 'kept' : 'short'} ${fmt(Math.abs(s.kept))}`;
     barChart($('#chartFlow'), labels, [{ cls: 'bar-in', values: st.map(s => s.inn) }, { cls: 'bar-out', values: st.map(s => s.out) }], { fmtTick: kfmt, onPick: pickFlow, selected: i });
   };
@@ -2177,6 +2180,7 @@ function renderInsights() {
     { fmtTick: v => `${Math.round(v * 100)}%`, labelLast: true });
   const lastDone = done[done.length - 1];
   $('#rateNow').textContent = pct(cur.rate);
+  $('#rateNow').style.color = cur.rate > 0 ? 'var(--good)' : cur.rate < 0 ? 'var(--bad)' : '';
   $('#rateNote').textContent = cur.rate == null ? 'add paydays or tips to see it' :
     `this month so far` + (lastDone && lastDone.rate != null ? ` · ${pct(lastDone.rate)} in ${monShort(lastDone.m)}` : '');
 
@@ -2431,7 +2435,7 @@ function render() {
   lastMoney = { month, left, tipsTotal };
   renderToday();
   $('#left').textContent = fmt(left);
-  $('#left').style.color = left < 0 ? 'var(--over)' : '';
+  $('#left').style.color = left < 0 ? 'var(--bad)' : left > 0 ? 'var(--good)' : '';
   $('#leftMath').textContent = pay || tipsTotal
     ? `${fmt(pay)} paid in${tipsTotal ? ` + ${fmt(tipsTotal)} tips` : ''} − ${fmt(bill)} bills − ${fmt(totalSpent)} spent${sharedTotal ? ` (incl. ${fmt(sharedTotal)} shared)` : ''}${savedThisMonth ? ` − ${fmt(savedThisMonth)} saved` : ''}`
     : 'Add your paydays to the calendar below to see what you can spend.';
@@ -2499,6 +2503,13 @@ function render() {
 
 }
 
+// A dollar amount as a colored span with its sign: +$1,200.00 (green) or −$65.00 (red).
+function money(cents, { sign = true } = {}) {
+  const sp = document.createElement('span');
+  sp.className = 'num ' + (cents > 0 ? 'pos' : cents < 0 ? 'neg' : '');
+  sp.textContent = (sign && cents > 0 ? '+' : '') + (cents < 0 ? '−' : '') + fmt(Math.abs(cents));
+  return sp;
+}
 function status(msg, err, el = $('#status')) { el.textContent = msg; el.classList.toggle('err', !!err); }
 
 // ---- Editing any item in place ----
@@ -2644,7 +2655,7 @@ function renderTips(total) {
     li.children[1].innerHTML = '<span></span><small></small>';
     li.children[1].firstChild.textContent = t.note || 'Cash tips';
     li.children[1].lastChild.textContent = t.hours > 0 ? `${hrs(t.hours)} · ${fmt(Math.round(t.cents / t.hours))}/hr` : '';
-    li.children[2].textContent = fmt(t.cents);
+    li.children[2].replaceChildren(money(t.cents));
     makeEditable(li.children[1].firstChild, t.note || 'Cash tips', () => openEditor(li, [
       { key: 'cents', label: 'Amount', type: 'money', value: t.cents, required: true },
       { key: 'hours', label: 'Hours worked', type: 'number', value: t.hours || '' },
@@ -3142,6 +3153,7 @@ function renderHome() {
   // Money between you
   const net = hhBalances(splits, hh.members), others = hh.members.filter(m => m !== fuid);
   $('#balLine').textContent = myBalanceText();
+  { const v = hhBalances(splits, hh.members)[fuid]; $('#balLine').style.color = v > 0 ? 'var(--good)' : v < 0 ? 'var(--bad)' : ''; }
   const settle = $('#settleBtn'), v = net[fuid], o = others[0];
   settle.hidden = others.length !== 1 || v === 0;
   if (!settle.hidden) settle.textContent = v < 0 ? `I paid ${Name(o)} ${fmt(-v)}` : `${Name(o)} paid me ${fmt(v)}`;
