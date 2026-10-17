@@ -139,10 +139,11 @@ details summary { cursor: pointer; font-weight: 600; font-family: var(--display)
 .dots { display: flex; gap: 3px; flex-wrap: wrap; }
 .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
 .dot.pay { background: var(--in); } .dot.bill { background: var(--bill); }
+.dot.tip { background: var(--in); border-radius: 2px; }
 .legend { display: flex; gap: 12px; font-size: 0.85rem; color: var(--muted); align-items: center; flex-wrap: wrap; }
 .totals { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 0.9rem; }
 .kind { font-size: 0.75rem; font-weight: 600; }
-.kind.pay { color: var(--in); } .kind.bill { color: var(--bill-ink); }
+.kind.pay, .kind.tip { color: var(--in); } .kind.bill { color: var(--bill-ink); }
 form.plain { background: none; border: 0; padding: 0; }
 .dot.bill.paid { background: transparent; box-shadow: inset 0 0 0 1.5px var(--bill); }
 .paidbox { display: flex; align-items: center; gap: 4px; cursor: pointer; }
@@ -645,7 +646,7 @@ textarea { font: inherit; color: var(--fg); background: var(--bg); border: 1px s
   <section class="card" aria-label="Paydays and bills">
     <div class="env-top">
       <h2>Paydays &amp; bills</h2>
-      <span class="legend"><span><i class="dot pay"></i> Payday</span><span><i class="dot bill"></i> Bill due</span></span>
+      <span class="legend"><span><i class="dot pay"></i> Payday</span><span><i class="dot tip"></i> Tips</span><span><i class="dot bill"></i> Bill due</span></span>
     </div>
     <div class="cal" id="cal"></div>
     <div class="totals" id="calTotals"></div>
@@ -992,12 +993,16 @@ function renderCal() {
     if (ev.kind === 'pay') pay += ev.cents;
     else { bill += ev.cents; if (!isPaid(ev, d)) unpaid += ev.cents; }
   }
+  const tipsByDay = {};   // tips are loaded for the month the calendar shows
+  for (const tp of tips) (tipsByDay[tp.date] = tipsByDay[tp.date] || []).push(tp);
+  const tipsTotal = tips.reduce((a, tp) => a + tp.cents, 0);
   monthGrid($('#cal'), selDate,
-    d => (byDay[d] || []).map(e => ['dot ' + e.kind + (e.kind === 'bill' && isPaid(e, d) ? ' paid' : ''), e.name]),
+    d => [...(byDay[d] || []).map(e => ['dot ' + e.kind + (e.kind === 'bill' && isPaid(e, d) ? ' paid' : ''), e.name]),
+      ...(tipsByDay[d] || []).map(tp => ['dot tip', `Tips ${fmt(tp.cents)}`])],
     d => { selDate = d; renderCal(); }, 'nothing due');
 
   const t = $('#calTotals'); t.replaceChildren();
-  for (const [label, val, color] of [['Paid in', pay, 'var(--in)'], ['Bills', bill, 'var(--bill-ink)'], ['Still unpaid', unpaid, unpaid ? 'var(--bill-ink)' : '']]) {
+  for (const [label, val, color] of [['Paid in', pay, 'var(--in)'], ...(tipsTotal ? [['Tips', tipsTotal, 'var(--in)']] : []), ['Bills', bill, 'var(--bill-ink)'], ['Still unpaid', unpaid, unpaid ? 'var(--bill-ink)' : '']]) {
     const s = document.createElement('span'); s.innerHTML = '<span class="muted"></span> <b class="num"></b>';
     s.firstChild.textContent = label; s.lastChild.textContent = fmt(val); s.lastChild.style.color = color; t.append(s);
   }
@@ -1006,7 +1011,17 @@ function renderCal() {
   $('#evSubmit').textContent = `Add to ${shortDate(selDate)}`;
   const list = $('#dayList'); list.replaceChildren();
   const todays = byDay[selDate] || [];
-  if (!todays.length) { const li = document.createElement('li'); li.className = 'muted'; li.style.display = 'block'; li.textContent = 'No paydays or bills on this day.'; list.append(li); }
+  const dayTips = tipsByDay[selDate] || [];
+  if (!todays.length && !dayTips.length) { const li = document.createElement('li'); li.className = 'muted'; li.style.display = 'block'; li.textContent = 'No paydays, bills or tips on this day.'; list.append(li); }
+  for (const tp of dayTips) {
+    const li = document.createElement('li');
+    li.innerHTML = '<span class="kind tip">Tips</span><span class="what"><span></span><small></small></span><span class="num"></span><span></span>';
+    li.querySelector('.what span').textContent = tp.note || 'Cash tips';
+    li.querySelector('.what small').textContent = tp.hours > 0 ? `${hrs(tp.hours)} · ${fmt(Math.round(tp.cents / tp.hours))}/hr` : '';
+    li.querySelector('.num').replaceChildren(money(tp.cents));
+    makeEditable(li.querySelector('.what span'), tp.note || 'Cash tips', () => openTipEditor(li, tp));
+    list.append(li);
+  }
   for (const ev of todays) {
     const li = document.createElement('li');
     li.innerHTML = '<span class="kind"></span><span class="what"><span></span><small></small></span><span class="num"></span><button class="del" type="button">✕</button>';
@@ -2640,6 +2655,17 @@ console.assert((() => { const s = tipStats([{ date: '2026-10-16', cents: 12000, 
   return s.hours === 10 && s.rate === 1600 && s.best.day === 'Fridays' && s.best.rate === 2000; })(), 'tipStats self-check failed');
 const hrs = h => `${Math.round(h * 100) / 100} hr${h === 1 ? '' : 's'}`;
 
+function openTipEditor(li, t) {
+  openEditor(li, [
+    { key: 'cents', label: 'Amount', type: 'money', value: t.cents, required: true },
+    { key: 'hours', label: 'Hours worked', type: 'number', value: t.hours || '' },
+    { key: 'note', label: 'What for', type: 'text', value: t.note || '' },
+    { key: 'date', label: 'Date', type: 'date', value: t.date, required: true },
+  ], async v => {
+    if (v.hours > 24) return 'Hours worked should be 24 or less.';
+    await tipCol.doc(t.id).update({ ...v, hours: v.hours || firebase.firestore.FieldValue.delete(), month: v.date.slice(0, 7) });
+  }, { onCancel: render, onDelete: () => tipCol.doc(t.id).delete() });
+}
 function renderTips(total) {
   $('#tipsBox').hidden = !tips.length;
   const st = tipStats(tips);
@@ -2656,15 +2682,7 @@ function renderTips(total) {
     li.children[1].firstChild.textContent = t.note || 'Cash tips';
     li.children[1].lastChild.textContent = t.hours > 0 ? `${hrs(t.hours)} · ${fmt(Math.round(t.cents / t.hours))}/hr` : '';
     li.children[2].replaceChildren(money(t.cents));
-    makeEditable(li.children[1].firstChild, t.note || 'Cash tips', () => openEditor(li, [
-      { key: 'cents', label: 'Amount', type: 'money', value: t.cents, required: true },
-      { key: 'hours', label: 'Hours worked', type: 'number', value: t.hours || '' },
-      { key: 'note', label: 'What for', type: 'text', value: t.note || '' },
-      { key: 'date', label: 'Date', type: 'date', value: t.date, required: true },
-    ], async v => {
-      if (v.hours > 24) return 'Hours worked should be 24 or less.';
-      await tipCol.doc(t.id).update({ ...v, hours: v.hours || firebase.firestore.FieldValue.delete(), month: v.date.slice(0, 7) });
-    }, { onCancel: render, onDelete: () => tipCol.doc(t.id).delete() }));
+    makeEditable(li.children[1].firstChild, t.note || 'Cash tips', () => openTipEditor(li, t));
     const del = li.children[3];
     del.setAttribute('aria-label', `Remove tips ${fmt(t.cents)} on ${shortDate(t.date)}`);
     del.onclick = async () => {
