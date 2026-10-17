@@ -725,12 +725,12 @@ function shiftMonth(d) {
   subscribeMonth(); render(); renderFood();
 }
 function barState(spent, cap) {
-  if (cap <= 0) return spent > 0 ? 'over' : '';
+  if (cap <= 0) return ''; // no budget set, so nothing to be over
   return spent > cap ? 'over' : spent >= cap * 0.85 ? 'warn' : '';
 }
 function setBar(el, spent, cap) {
   el.className = 'bar ' + barState(spent, cap);
-  el.firstElementChild.style.width = (cap > 0 ? Math.min(100, spent / cap * 100) : spent > 0 ? 100 : 0) + '%';
+  el.firstElementChild.style.width = (cap > 0 ? Math.min(100, spent / cap * 100) : 0) + '%';
 }
 
 // ---- Paydays & bills calendar ----
@@ -1808,8 +1808,9 @@ async function loadInsights() {
   if (!insData) $('#insStatus').textContent = 'Crunching your numbers…';
   try {
     const [ex, tp] = await Promise.all([expCol.where('month', '>=', months[0]).get(), tipCol.where('month', '>=', months[0]).get()]);
-    const stats = insightStats(months, ex.docs.map(d => d.data()), tp.docs.map(d => d.data()), events, categories);
-    insRaw = { exps: ex.docs.map(d => d.data()), tips: tp.docs.map(d => d.data()) };
+    const exps = [...ex.docs.map(d => d.data()), ...mySharedRows().filter(r => r.month >= months[0])];
+    const stats = insightStats(months, exps, tp.docs.map(d => d.data()), events, categories);
+    insRaw = { exps, tips: tp.docs.map(d => d.data()) };
     insData = keepLoggedMonths(stats);
     $('#insStatus').textContent = '';
     renderInsights();
@@ -2041,24 +2042,35 @@ $('#eventForm').addEventListener('submit', async ev => {
   } catch (e) { status(e?.code === 'quota_exceeded' ? 'Storage is full. Delete some old items and try again.' : 'Could not save that. Try again.', true, el); }
 });
 
+// My share of household costs, shaped like expenses so the Money tab and Insights count them.
+// Settling up is just paying back, not new spending, so it isn't included.
+// (The household code loads in a later script, so check it exists first.)
+function mySharedRows(m) {
+  if (typeof hh === 'undefined' || !hh) return [];
+  return splits.filter(e => e.kind !== 'settle' && e.split && e.split[fuid] && (!m || e.month === m))
+    .map(e => ({ id: 'shared-' + e.id, shared: true, month: e.month, date: e.date, created: e.created, category: 'Shared costs', note: e.desc, cents: e.split[fuid] }));
+}
+
 function render() {
   $('#monthLabel').textContent = monthName(month);
   const { pay, bill } = renderCal();
+  const sharedRows = mySharedRows(month), monthExp = [...expenses, ...sharedRows];
+  const prevAll = [...prevExpenses, ...mySharedRows(prevMonthOf(month))];
   const spentBy = {};
-  for (const e of expenses) spentBy[e.category] = (spentBy[e.category] || 0) + e.cents;
+  for (const e of monthExp) spentBy[e.category] = (spentBy[e.category] || 0) + e.cents;
   const names = [...categories.map(c => c.name), ...Object.keys(spentBy).filter(n => !categories.some(c => c.name === n))];
   const prevSpentBy = {};
-  for (const e of prevExpenses) prevSpentBy[e.category] = (prevSpentBy[e.category] || 0) + e.cents;
+  for (const e of prevAll) prevSpentBy[e.category] = (prevSpentBy[e.category] || 0) + e.cents;
   const baseCap = n => (categories.find(c => c.name === n) || { cents: 0 }).cents;
   // shortcut: rollover carries one month back using this month's budget amounts; a full history would need every past month.
   // Skipped when last month has no expenses at all, so the first month in the app doesn't get a free extra budget.
-  const carry = n => rollover && prevExpenses.length && baseCap(n) > 0 ? baseCap(n) - (prevSpentBy[n] || 0) : 0;
+  const carry = n => rollover && prevAll.length && baseCap(n) > 0 ? baseCap(n) - (prevSpentBy[n] || 0) : 0;
   const capOf = n => Math.max(0, baseCap(n) + carry(n));
 
   const totalBudget = categories.reduce((a, c) => a + capOf(c.name), 0);
   lastCats = { month, list: categories.map(c => ({ name: c.name, spent: spentBy[c.name] || 0, cap: capOf(c.name) })) };
   renderAlerts();
-  const totalSpent = expenses.reduce((a, e) => a + e.cents, 0);
+  const totalSpent = monthExp.reduce((a, e) => a + e.cents, 0), sharedTotal = sharedRows.reduce((a, e) => a + e.cents, 0);
   // What you can still spend: money coming in, minus bills, minus what's already spent.
   // Money moved into savings goals this month is no longer spendable.
   const savedThisMonth = goals.reduce((a, g) => a + (g.log || []).filter(x => x.date.startsWith(month)).reduce((b, x) => b + x.cents, 0), 0);
@@ -2069,10 +2081,10 @@ function render() {
   $('#left').textContent = fmt(left);
   $('#left').style.color = left < 0 ? 'var(--over)' : '';
   $('#leftMath').textContent = pay || tipsTotal
-    ? `${fmt(pay)} paid in${tipsTotal ? ` + ${fmt(tipsTotal)} tips` : ''} − ${fmt(bill)} bills − ${fmt(totalSpent)} spent${savedThisMonth ? ` − ${fmt(savedThisMonth)} saved` : ''}`
+    ? `${fmt(pay)} paid in${tipsTotal ? ` + ${fmt(tipsTotal)} tips` : ''} − ${fmt(bill)} bills − ${fmt(totalSpent)} spent${sharedTotal ? ` (incl. ${fmt(sharedTotal)} shared)` : ''}${savedThisMonth ? ` − ${fmt(savedThisMonth)} saved` : ''}`
     : 'Add your paydays to the calendar below to see what you can spend.';
   renderGoals(); renderDebts(); renderQuick(); renderTips(tipsTotal);
-  renderRecap({ spentBy, prevSpentBy, names, totalSpent, prevTotal: prevExpenses.reduce((a, e) => a + e.cents, 0), savedThisMonth, tipsTotal });
+  renderRecap({ spentBy, prevSpentBy, names, totalSpent, prevTotal: prevAll.reduce((a, e) => a + e.cents, 0), savedThisMonth, tipsTotal });
   $('#spent').textContent = fmt(totalSpent);
   $('#budget').textContent = fmt(totalBudget);
   setBar($('#totalBar'), totalSpent, totalBudget);
@@ -2089,7 +2101,7 @@ function render() {
     d.innerHTML = '<summary><div class="env-top"><span class="env-name"></span><span class="num muted"></span></div><div class="bar"><i></i></div></summary><ul class="ledger"></ul>';
     d.open = openEnvs.has(n);
     d.ontoggle = () => { if (d.open) openEnvs.add(n); else openEnvs.delete(n); };
-    const mine = expenses.filter(e => e.category === n).sort((a, b) => b.date.localeCompare(a.date) || b.created - a.created);
+    const mine = monthExp.filter(e => e.category === n).sort((a, b) => b.date.localeCompare(a.date) || b.created - a.created);
     const ul = d.querySelector('ul');
     if (!mine.length) { const li = document.createElement('li'); li.className = 'muted'; li.style.display = 'block'; li.textContent = 'Nothing spent here this month.'; ul.append(li); }
     for (const e of mine) {
@@ -2098,6 +2110,11 @@ function render() {
       li.children[0].textContent = new Date(e.date + 'T12:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
       li.children[1].textContent = e.note || n;
       li.children[2].textContent = fmt(e.cents);
+      if (e.shared) {
+        // Your share of a household cost: change or delete it on the Home tab, where the full cost lives.
+        const tag = document.createElement('span'); tag.className = 'muted'; tag.style.fontSize = '0.8rem'; tag.textContent = 'your share';
+        li.children[3].replaceWith(tag); ul.append(li); continue;
+      }
       const del = li.children[3];
       del.setAttribute('aria-label', `Remove ${e.note || n} ${fmt(e.cents)}`);
       del.onclick = async () => {
@@ -2333,7 +2350,7 @@ function startHousehold(db, uid) {
     const ref = db.doc(`households/${id}`);
     hhUnsubs.push(ref.onSnapshot(d => { hh = d.exists && (d.data().members || []).includes(uid) ? d.data() : null; renderHousehold(); }, () => { hh = null; renderHousehold(); }));
     hhUnsubs.push(ref.collection('shopping').orderBy('created').onSnapshot(q => { shared = q.docs.map(d => ({ id: d.id, ...d.data() })); renderShared(); }, () => {}));
-    hhUnsubs.push(ref.collection('expenses').orderBy('created').onSnapshot(q => { splits = q.docs.map(d => ({ id: d.id, ...d.data() })); renderHome(); }, () => {}));
+    hhUnsubs.push(ref.collection('expenses').orderBy('created').onSnapshot(q => { splits = q.docs.map(d => ({ id: d.id, ...d.data() })); render(); renderHome(); }, () => {}));
     hhUnsubs.push(ref.collection('bills').onSnapshot(q => { sbills = q.docs.map(d => ({ id: d.id, ...d.data() })); renderHome(); }, () => {}));
     hhUnsubs.push(ref.collection('chores').onSnapshot(q => { chores = q.docs.map(d => ({ id: d.id, ...d.data() })); renderHome(); }, () => {}));
     watchVote();
