@@ -11,4 +11,7 @@ Personal web app (money, bills, tips, food, meals, calories, habits). Installed 
 2. Bump `VERSION` in `sw.js` (e.g. `v1` → `v2`) on every change, or phones keep the old cached files.
 3. Check the scripts still parse, then commit and `git push origin main`. Pages republishes in about a minute.
 
-Never change the Firestore document paths (`data/users/<uid>/budget`, `.../budget/expenses`, `.../budget/tips`, `food`, `calories`, `kitchen`, `quick`, `debts`, `goals`, `habits`, `calendar`) without migrating existing data.
+Never change the Firestore document paths without migrating existing data:
+- Personal: `data/users/<uid>/budget` (+ subcollections `expenses`, `tips`), `food`, `calories`, `kitchen`, `quick`, `debts`, `goals`, `habits`, `calendar`, `household` (pointer `{id}`).
+- Shared with a roommate: `households/<inviteCode>` (`members`, `names`) with subcollections `shopping`, `votes/<date>`, `expenses` (shared costs; `kind: 'settle'` for paybacks), `bills`, `chores`, `notes`.
+- Rules for both live in `firestore.rules`; the owner pastes them into the Firebase console by hand.
