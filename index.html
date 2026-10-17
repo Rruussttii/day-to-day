@@ -749,13 +749,13 @@ textarea { font: inherit; color: var(--fg); background: var(--bg); border: 1px s
 </details>
   </section>
 
-  <section class="card" aria-label="Search spending">
-    <h2>Search spending</h2>
+  <section class="card" aria-label="Look up spending">
+    <h2>Look up spending</h2>
     <div class="row">
-      <label><span class="label">Search for</span><input id="srchText" type="search" placeholder="Target, coffee, gas…" autocomplete="off"></label>
-      <label><span class="label">When</span><select id="srchWhen"><option value="month">This month</option><option value="3">Last 3 months</option><option value="year" selected>This year</option><option value="all">All time</option></select></label>
+      <label><span class="label">Category</span><select id="srchCat"><option value="">All categories</option></select></label>
+      <label><span class="label">When</span><select id="srchWhen"><option value="month" selected>This month</option><option value="3">Last 3 months</option><option value="year">This year</option><option value="all">All time</option></select></label>
     </div>
-    <p class="num" id="srchTotal" style="margin:0;font-weight:600"></p>
+    <p id="srchTotal" style="margin:0;font-weight:600"></p>
     <ul class="ledger" id="srchList"></ul>
   </section>
 
@@ -1172,6 +1172,7 @@ function showTab(name) {
   if (name === 'habits') renderHabits(); // the day may have rolled over since the last render
   if (name === 'today') renderToday();
   if (name === 'insights') loadInsights();
+  if (name === 'money') runSearch();
   scrollTo(0, 0);
   try { localStorage.setItem('tab', name); } catch {}
 }
@@ -2107,38 +2108,61 @@ async function loadInsights() {
 }
 
 // ---- Search spending: by what it was for or its category, over a chosen period ----
-let allExp = null, srchTimer = null;   // every personal expense, loaded on the first search and dropped when expenses change
+let allExp = null;   // every personal expense, loaded on the first search and dropped when expenses change
 function searchFrom(when, cur) {
   return when === 'month' ? cur : when === '3' ? monthsBack(cur, 3)[0] : when === 'year' ? cur.slice(0, 4) + '-01' : '';
 }
 console.assert(searchFrom('3', '2026-02') === '2025-12' && searchFrom('year', '2026-10') === '2026-01' && searchFrom('all', '2026-10') === '', 'searchFrom self-check failed');
+// Categories to look up: your list plus any category that has spending (older ones, Shared costs).
+function fillLookupCats() {
+  const sel = $('#srchCat'), prev = sel.value;
+  const names = [...new Set([...categoryNames(), ...(allExp || []).map(e => e.category), ...mySharedRows().map(e => e.category)])].filter(Boolean);
+  sel.replaceChildren(new Option('All categories', ''), ...names.map(n => new Option(n, n)));
+  sel.value = names.includes(prev) ? prev : '';
+}
 async function runSearch() {
-  const q = $('#srchText').value.trim().toLowerCase(), out = $('#srchTotal'), ul = $('#srchList');
-  ul.replaceChildren();
-  if (!q) { out.textContent = ''; return; }
-  if (!expCol) { out.textContent = 'Sign in to search.'; return; }
+  const cat = $('#srchCat').value, out = $('#srchTotal'), ul = $('#srchList');
+  if (!expCol) { out.textContent = 'Sign in to look up your spending.'; return; }
   if (!allExp) {
-    out.textContent = 'Searching…';
-    try { allExp = (await expCol.get()).docs.map(d => d.data()); } catch { out.textContent = 'Could not search. Check your connection.'; return; }
+    out.textContent = 'Loading…';
+    try { allExp = (await expCol.get()).docs.map(d => d.data()); } catch { out.textContent = 'Could not load your spending. Check your connection.'; return; }
+    fillLookupCats();
   }
-  const from = searchFrom($('#srchWhen').value, today().slice(0, 7));
-  const rows = [...allExp, ...mySharedRows()]
-    .filter(e => e.month >= from && ((e.note || '').toLowerCase().includes(q) || (e.category || '').toLowerCase().includes(q)))
-    .sort((a, b) => b.date.localeCompare(a.date));
-  const total = rows.reduce((a, e) => a + e.cents, 0), label = $('#srchWhen').selectedOptions[0].textContent.toLowerCase();
-  out.textContent = rows.length ? `${fmt(total)} on "${$('#srchText').value.trim()}" ${label} · ${rows.length} purchase${rows.length > 1 ? 's' : ''}` : `Nothing matching "${$('#srchText').value.trim()}" ${label}.`;
+  ul.replaceChildren();
+  const from = searchFrom($('#srchWhen').value, today().slice(0, 7)), label = $('#srchWhen').selectedOptions[0].textContent.toLowerCase();
+  const rows = [...allExp, ...mySharedRows()].filter(e => e.month >= from && (!cat || e.category === cat)).sort((a, b) => b.date.localeCompare(a.date));
+  const total = rows.reduce((a, e) => a + e.cents, 0);
+  out.replaceChildren();
+  if (!rows.length) { out.textContent = `No spending${cat ? ` on ${cat}` : ''} ${label}.`; return; }
+  out.append(money(-total, { sign: false }), ` ${cat ? `on ${cat}` : 'in total'} ${label} · ${rows.length} purchase${rows.length > 1 ? 's' : ''}`);
+  if (!cat) {
+    // All categories: a total for each, biggest first. Tap one to see its purchases.
+    const by = {};
+    for (const e of rows) { const b = (by[e.category] = by[e.category] || { cents: 0, n: 0 }); b.cents += e.cents; b.n++; }
+    for (const [name, b] of Object.entries(by).sort((x, y) => y[1].cents - x[1].cents)) {
+      const li = document.createElement('li'); li.className = 'kcal';
+      li.innerHTML = '<span class="what"><span></span><small></small></span><span class="num"></span><span></span>';
+      li.querySelector('.what span').textContent = name;
+      li.querySelector('.what small').textContent = `${b.n} purchase${b.n > 1 ? 's' : ''} · ${Math.round(b.cents / total * 100)}% of the total`;
+      li.children[1].replaceChildren(money(-b.cents));
+      makeEditable(li.querySelector('.what span'), `${name} purchases`, () => { $('#srchCat').value = name; runSearch(); });
+      li.querySelector('.what span').setAttribute('aria-label', `Show ${name} purchases`);
+      ul.append(li);
+    }
+    return;
+  }
   for (const e of rows.slice(0, 50)) {
     const li = document.createElement('li');
     li.innerHTML = '<span class="when"></span><span class="what"><span></span><small></small></span><span class="num"></span><span></span>';
     li.children[0].textContent = new Date(e.date + 'T12:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: e.date.slice(0, 4) === today().slice(0, 4) ? undefined : '2-digit' });
     li.querySelector('.what span').textContent = e.note || e.category;
-    li.querySelector('.what small').textContent = e.note ? e.category + (e.shared ? ' · your share' : '') : '';
+    li.querySelector('.what small').textContent = e.shared ? 'your share' : '';
     li.children[2].replaceChildren(money(-e.cents));
     ul.append(li);
   }
   if (rows.length > 50) { const li = document.createElement('li'); li.className = 'muted'; li.style.display = 'block'; li.textContent = `Showing the latest 50 of ${rows.length}.`; ul.append(li); }
 }
-$('#srchText').addEventListener('input', () => { clearTimeout(srchTimer); srchTimer = setTimeout(runSearch, 300); });
+$('#srchCat').onchange = runSearch;
 $('#srchWhen').onchange = runSearch;
 
 // ---- Month-end wrap-up: shown on Today for the first 3 days of a month, until dismissed ----
@@ -2729,7 +2753,7 @@ function subscribeMonth() {
   if (unsubExp) unsubExp();
   expenses = [];
   unsubExp = expCol.where('month', '==', month).onSnapshot(
-    s => { expenses = s.docs.map(d => ({ id: d.id, ...d.data() })); allExp = null; render(); },
+    s => { expenses = s.docs.map(d => ({ id: d.id, ...d.data() })); allExp = null; render(); if (curTab === 'money') runSearch(); },
     () => status('Lost connection to your saved data. Reload the page.', true));
   if (unsubPrev) unsubPrev();
   prevExpenses = [];
