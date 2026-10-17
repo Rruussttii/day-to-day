@@ -32,18 +32,21 @@
   --bg: #121815; --card: #1a221e; --fg: #e4ebe6; --muted: #93a39a; --line: #2c3832;
   --accent: #4cc38a; --accent-fg: #0d1a13; --warn: #e0a84a; --over: #ef6b5d; --track: #26302b; --bill: #bd5a8c; --bill-ink: #e58fb6; --in: #4a86cc; --out: #c27c35; color-scheme: dark }
 
-/* Main color choices (Settings). Each keeps readable button text in both themes. */
-:root[data-accent="teal"] { --accent: #0f766e; }
-:root[data-accent="purple"] { --accent: #6d4bc4; }
-:root[data-accent="slate"] { --accent: #475569; }
+/* Themes (Settings). Each sets the whole look in a light and a dark version; all text pairs meet WCAG AA. */
+:root[data-palette="ocean"] { --bg: #e9eff5; --card: #f9fbfd; --fg: #15212c; --muted: #526375; --line: #cdd8e3; --track: #d9e3ec; --accent: #0e6f8c; --accent-fg: #ffffff; }
+:root[data-palette="graphite"] { --bg: #eeeef0; --card: #fbfbfc; --fg: #1c1c1f; --muted: #5d5f66; --line: #d5d6da; --track: #e1e2e5; --accent: #2a2a2e; --accent-fg: #ffffff; }
+:root[data-palette="plum"] { --bg: #f1edf5; --card: #fcfbfd; --fg: #221a2b; --muted: #665877; --line: #ddd3e8; --track: #e6dfee; --accent: #6d4bc4; --accent-fg: #ffffff; }
+:root[data-palette="sand"] { --bg: #f3eee6; --card: #fdfaf5; --fg: #2a231b; --muted: #6c604f; --line: #e2d8c8; --track: #eae2d5; --accent: #7c4f22; --accent-fg: #ffffff; }
 @media (prefers-color-scheme: dark) {
-  :root[data-accent="teal"]:not([data-theme="light"]) { --accent: #2dd4bf; }
-  :root[data-accent="purple"]:not([data-theme="light"]) { --accent: #a78bfa; }
-  :root[data-accent="slate"]:not([data-theme="light"]) { --accent: #94a3b8; }
+  :root[data-palette="ocean"]:not([data-theme="light"]) { --bg: #0e1620; --card: #152030; --fg: #e2e9f1; --muted: #8fa2b6; --line: #253447; --track: #1d2a3a; --accent: #38bdf8; --accent-fg: #05202e; }
+  :root[data-palette="graphite"]:not([data-theme="light"]) { --bg: #121214; --card: #1c1c1f; --fg: #e7e7ea; --muted: #9a9ba3; --line: #2e2f34; --track: #27282c; --accent: #e4e4e7; --accent-fg: #18181b; }
+  :root[data-palette="plum"]:not([data-theme="light"]) { --bg: #15111b; --card: #1e1826; --fg: #ece6f3; --muted: #a596b8; --line: #322a3e; --track: #2a2234; --accent: #b197fc; --accent-fg: #1a1030; }
+  :root[data-palette="sand"]:not([data-theme="light"]) { --bg: #17130e; --card: #211b14; --fg: #efe7dc; --muted: #a89a86; --line: #352c21; --track: #2b241b; --accent: #e0ad73; --accent-fg: #1e140a; }
 }
-:root[data-theme="dark"][data-accent="teal"] { --accent: #2dd4bf; }
-:root[data-theme="dark"][data-accent="purple"] { --accent: #a78bfa; }
-:root[data-theme="dark"][data-accent="slate"] { --accent: #94a3b8; }
+:root[data-theme="dark"][data-palette="ocean"] { --bg: #0e1620; --card: #152030; --fg: #e2e9f1; --muted: #8fa2b6; --line: #253447; --track: #1d2a3a; --accent: #38bdf8; --accent-fg: #05202e; }
+:root[data-theme="dark"][data-palette="graphite"] { --bg: #121214; --card: #1c1c1f; --fg: #e7e7ea; --muted: #9a9ba3; --line: #2e2f34; --track: #27282c; --accent: #e4e4e7; --accent-fg: #18181b; }
+:root[data-theme="dark"][data-palette="plum"] { --bg: #15111b; --card: #1e1826; --fg: #ece6f3; --muted: #a596b8; --line: #322a3e; --track: #2a2234; --accent: #b197fc; --accent-fg: #1a1030; }
+:root[data-theme="dark"][data-palette="sand"] { --bg: #17130e; --card: #211b14; --fg: #efe7dc; --muted: #a89a86; --line: #352c21; --track: #2b241b; --accent: #e0ad73; --accent-fg: #1e140a; }
 :root[data-text="large"] { font-size: 112.5%; }
 
 body { background: var(--bg); color: var(--fg); font: 0.9375rem/1.5 var(--body); padding: 0 16px; }
@@ -62,7 +65,8 @@ dialog#settingsDlg::backdrop { background: rgb(0 0 0 / 0.45); }
 .seg label:has(input:focus-visible), .swatches label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
 .swatches { display: flex; gap: 10px; flex-wrap: wrap; }
 .swatches label { display: grid; justify-items: center; gap: 4px; cursor: pointer; font-size: 0.75rem; color: var(--muted); }
-.swatches i { width: 30px; height: 30px; border-radius: 50%; display: block; box-shadow: inset 0 0 0 2px rgb(255 255 255 / 0.25); }
+.swatches i { width: 52px; height: 38px; border-radius: 10px; display: grid; place-items: end start; padding: 5px; box-sizing: border-box; border: 1px solid var(--line); }
+.swatches i b { width: 18px; height: 6px; border-radius: 3px; display: block; }
 .swatches label:has(input:checked) { color: var(--fg); font-weight: 600; }
 .swatches label:has(input:checked) i { outline: 2px solid var(--fg); outline-offset: 2px; }
 .switch-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--line); cursor: pointer; }
@@ -776,8 +780,8 @@ textarea { font: inherit; color: var(--fg); background: var(--bg); border: 1px s
       <div class="env-top"><h2 id="setTitle">Settings</h2><button class="small-btn primary" value="done">Done</button></div>
       <section aria-label="Appearance">
         <h3>Appearance</h3>
-        <div class="setrow"><span>Theme</span><div class="seg" role="radiogroup"><label><input type="radio" name="setTheme" value="auto">Match phone</label><label><input type="radio" name="setTheme" value="light">Light</label><label><input type="radio" name="setTheme" value="dark">Dark</label></div></div>
-        <div class="setrow"><span>Color</span><div class="swatches"><label><input type="radio" name="setAccent" value="green"><i style="background:#1f7a54"></i>Green</label><label><input type="radio" name="setAccent" value="teal"><i style="background:#0f766e"></i>Teal</label><label><input type="radio" name="setAccent" value="purple"><i style="background:#6d4bc4"></i>Purple</label><label><input type="radio" name="setAccent" value="slate"><i style="background:#475569"></i>Slate</label></div></div>
+        <div class="setrow"><span>Mode</span><div class="seg" role="radiogroup"><label><input type="radio" name="setTheme" value="auto">Match phone</label><label><input type="radio" name="setTheme" value="light">Light</label><label><input type="radio" name="setTheme" value="dark">Dark</label></div></div>
+        <div class="setrow" style="align-items:start"><span>Theme</span><div class="swatches"><label><input type="radio" name="setPalette" value="sage"><i style="background:linear-gradient(135deg, #eef1ee 50%, #121815 50%)"><b style="background:#1f7a54"></b></i>Sage</label><label><input type="radio" name="setPalette" value="ocean"><i style="background:linear-gradient(135deg, #e9eff5 50%, #0e1620 50%)"><b style="background:#0e6f8c"></b></i>Ocean</label><label><input type="radio" name="setPalette" value="graphite"><i style="background:linear-gradient(135deg, #eeeef0 50%, #121214 50%)"><b style="background:#2a2a2e"></b></i>Graphite</label><label><input type="radio" name="setPalette" value="plum"><i style="background:linear-gradient(135deg, #f1edf5 50%, #15111b 50%)"><b style="background:#6d4bc4"></b></i>Plum</label><label><input type="radio" name="setPalette" value="sand"><i style="background:linear-gradient(135deg, #f3eee6 50%, #17130e 50%)"><b style="background:#7c4f22"></b></i>Sand</label></div></div>
         <div class="setrow"><span>Text size</span><div class="seg" role="radiogroup"><label><input type="radio" name="setText" value="normal">Normal</label><label><input type="radio" name="setText" value="large">Large</label></div></div>
       </section>
       <section aria-label="Tabs">
@@ -1090,17 +1094,27 @@ let foodRef = null;
 const TABS = ['today', 'money', 'food', 'home', 'habits', 'insights'];
 const cap = s => s[0].toUpperCase() + s.slice(1);
 // ---- Settings: saved on this device right away, and synced through your account ----
-const DEFAULT_SETTINGS = { theme: 'auto', accent: 'green', text: 'normal', start: 'last', tabs: { money: true, food: true, home: true, habits: true, insights: true } };
-function mergeSettings(saved) { return { ...DEFAULT_SETTINGS, ...(saved || {}), tabs: { ...DEFAULT_SETTINGS.tabs, ...((saved || {}).tabs || {}) } }; }
+const DEFAULT_SETTINGS = { theme: 'auto', palette: 'sage', text: 'normal', start: 'last', tabs: { money: true, food: true, home: true, habits: true, insights: true } };
+const PALETTES = ['sage', 'ocean', 'graphite', 'plum', 'sand'];
+function mergeSettings(saved) {
+  const m = { ...DEFAULT_SETTINGS, ...(saved || {}), tabs: { ...DEFAULT_SETTINGS.tabs, ...((saved || {}).tabs || {}) } };
+  if (saved && saved.accent && !saved.palette) m.palette = { teal: 'ocean', purple: 'plum', slate: 'graphite' }[saved.accent] || 'sage';
+  delete m.accent;
+  if (!PALETTES.includes(m.palette)) m.palette = 'sage';
+  return m;
+}
 let settings = mergeSettings((() => { try { return JSON.parse(localStorage.getItem('settings') || 'null'); } catch { return null; } })());
 let settingsRef = null, curTab = 'today';
 const tabOn = t => t === 'today' || settings.tabs[t] !== false;
 console.assert(mergeSettings({ tabs: { food: false } }).tabs.money === true && mergeSettings({ tabs: { food: false } }).tabs.food === false
-  && mergeSettings(null).accent === 'green', 'settings self-check failed');
+  && mergeSettings(null).palette === 'sage' && mergeSettings({ accent: 'purple' }).palette === 'plum', 'settings self-check failed');
 function applySettings() {
   const r = document.documentElement;
   if (settings.theme === 'auto') r.removeAttribute('data-theme'); else r.setAttribute('data-theme', settings.theme);
-  r.dataset.accent = settings.accent; r.dataset.text = settings.text;
+  r.dataset.palette = settings.palette; r.dataset.text = settings.text;
+  // Match the phone's status bar to the theme's background.
+  const bg = getComputedStyle(r).getPropertyValue('--bg').trim();
+  document.querySelectorAll('meta[name="theme-color"]').forEach(m => m.setAttribute('content', bg));
   for (const t of TABS) if (t !== 'today') $(`#tab${cap(t)}`).hidden = !tabOn(t);
   if (!tabOn(curTab)) showTab('today');
   renderToday(); renderAlerts();
@@ -1109,11 +1123,11 @@ function saveSettings(next) {
   settings = mergeSettings(next);
   try { localStorage.setItem('settings', JSON.stringify(settings)); } catch {}
   applySettings();
-  if (settingsRef) settingsRef.set(settings).catch(() => {});
+  if (settingsRef) settingsRef.set(settings).catch(() => {});   // set() replaces the doc, so the old "accent" key goes away
 }
 function fillSettingsForm() {
   const f = $('#settingsForm');
-  f.elements.setTheme.value = settings.theme; f.elements.setAccent.value = settings.accent;
+  f.elements.setTheme.value = settings.theme; f.elements.setPalette.value = settings.palette;
   f.elements.setText.value = settings.text; f.elements.setStart.value = settings.start;
   for (const cb of f.querySelectorAll('input.switch')) cb.checked = tabOn(cb.dataset.tab);
 }
@@ -1127,7 +1141,7 @@ $('#gearBtn').onclick = () => {
 $('#settingsForm').addEventListener('change', () => {
   const f = $('#settingsForm'), tabs = {};
   for (const cb of f.querySelectorAll('input.switch')) tabs[cb.dataset.tab] = cb.checked;
-  saveSettings({ theme: f.elements.setTheme.value, accent: f.elements.setAccent.value, text: f.elements.setText.value, start: f.elements.setStart.value, tabs });
+  saveSettings({ theme: f.elements.setTheme.value, palette: f.elements.setPalette.value, text: f.elements.setText.value, start: f.elements.setStart.value, tabs });
 });
 $('#settingsDlg').addEventListener('click', e => { if (e.target === $('#settingsDlg')) $('#settingsDlg').close(); });   // tap outside to close
 $('#setSignOut').onclick = () => { $('#settingsDlg').close(); $('#signOut').click(); };
