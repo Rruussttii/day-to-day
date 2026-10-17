@@ -393,6 +393,18 @@ textarea { font: inherit; color: var(--fg); background: var(--bg); border: 1px s
       <div class="status" id="choreStatus" role="status"></div>
     </section>
 
+    <section class="card" id="hhNotes" aria-label="House notes" hidden>
+      <h2 id="notesTitle">House notes</h2>
+      <ul class="ledger" id="noteList"></ul>
+      <details class="addbox"><summary>+ Add a note</summary>
+        <form class="plain" id="noteForm" autocomplete="off">
+          <label><span class="label">Note</span><textarea id="noteText" maxlength="500" placeholder="Wi-Fi password, landlord's number, plumber coming Thursday…"></textarea></label>
+          <button class="primary" type="submit">Add note</button>
+        </form>
+      </details>
+      <div class="status" id="noteStatus" role="status"></div>
+    </section>
+
     <section class="card" id="sharedShop" aria-label="Shared shopping list" hidden>
       <div class="env-top">
         <h2 id="sharedTitle">Shared shopping list</h2>
@@ -668,6 +680,16 @@ textarea { font: inherit; color: var(--fg); background: var(--bg); border: 1px s
 </details>
   </section>
 
+  <section class="card" aria-label="Search spending">
+    <h2>Search spending</h2>
+    <div class="row">
+      <label><span class="label">Search for</span><input id="srchText" type="search" placeholder="Target, coffee, gas…" autocomplete="off"></label>
+      <label><span class="label">When</span><select id="srchWhen"><option value="month">This month</option><option value="3">Last 3 months</option><option value="year" selected>This year</option><option value="all">All time</option></select></label>
+    </div>
+    <p class="num" id="srchTotal" style="margin:0;font-weight:600"></p>
+    <ul class="ledger" id="srchList"></ul>
+  </section>
+
   <section class="card" aria-label="Month recap">
     <h2 id="recapTitle">Month recap</h2>
     <div id="recap" class="recap"></div>
@@ -676,7 +698,7 @@ textarea { font: inherit; color: var(--fg); background: var(--bg); border: 1px s
 
   <section class="card" id="backupBox" aria-label="Backup" hidden>
     <h2>Backup</h2>
-    <p class="muted" style="margin:0">Save everything (expenses, spending categories, bills, goals, debts, food and habits) as an Excel file you can keep or open in any spreadsheet app.</p>
+    <p class="muted" style="margin:0">Save everything (expenses, tips, bills, goals, debts, food, calories, habits, and your shared Home data) as an Excel file you can keep or open in any spreadsheet app.</p>
     <button type="button" id="backupBtn" style="justify-self:start">Download backup (Excel)</button>
     <label class="filebtn" style="justify-self:start"><input type="file" id="importFile" accept=".json,application/json"><span>Import from the old Claude app</span></label>
     <div class="status" id="backupStatus" role="status"></div>
@@ -764,6 +786,8 @@ console.assert(
   occurrences({ date: '2026-10-20', repeat: 'none' }, '2026-10').join() === '2026-10-20', 'occurrences self-check failed');
 
 const REPEAT_LABEL = { none: '', weekly: 'every week', biweekly: 'every 2 weeks', monthly: 'every month' };
+// A timestamp's date where you are (not UTC), as YYYY-MM-DD.
+const localDay = ms => new Date(ms).toLocaleDateString('en-CA');
 const shortDate = d => new Date(d + 'T12:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
 const isPaid = (ev, d) => !!(ev.paid && ev.paid[d]);
@@ -1531,6 +1555,16 @@ $('#backupBtn').onclick = async () => {
         ...(d.log || []).map(x => ({ Debt: d.name, Date: x.date, Amount: money(x.cents), Note: 'Payment' }))]),
       Food: food.map(f => ({ Item: f.name, Amount: f.qty || '', List: f.status === 'need' ? 'Shopping list' : 'Already have', Expires: f.expires || '' })),
       Calories: Object.entries(kcal.days).sort().flatMap(([d, xs]) => xs.map(x => ({ Date: d, Meal: x.meal, Food: x.name, Calories: x.kcal }))),
+      // Home (shared with your roommate), when you're in a household.
+      ...(typeof hh !== 'undefined' && hh ? {
+        'Shared costs': [...splits].sort((a, b) => a.created - b.created).map(e => e.kind === 'settle'
+          ? { Date: e.date, What: `${Name(e.from)} paid ${Name(e.to)} back`, Amount: money(e.cents), 'Paid by': Name(e.from), 'My share': '' }
+          : { Date: e.date, What: e.desc, Amount: money(e.cents), 'Paid by': Name(e.paidBy), 'My share': money((e.split || {})[fuid] || 0) }),
+        'Shared bills': sbills.map(b => ({ Bill: b.name, 'Monthly amount': money(b.cents), 'Due day': b.day })),
+        Chores: chores.map(c => { const st = choreState(c, today()); return { Chore: c.name, 'Every (days)': c.every, 'Next due': st.due, 'Whose turn': Name(st.who) }; }),
+        'Shared list': shared.map(i => ({ Item: i.name, Amount: i.qty || '', 'Added by': Name(i.by) })),
+        'House notes': notes.map(n => ({ Note: n.text, By: Name(n.by), Added: localDay(n.created) })),
+      } : {}),
       Habits: habits.list.map(h => ({ Habit: h.name, 'Current streak (days)': streak(h.id, habits.done), 'Days done': Object.values(habits.done).filter(ids => ids.includes(h.id)).length })),
     };
     const wb = XLSX.utils.book_new();
@@ -1651,6 +1685,7 @@ function renderToday() {
   if (!box) return;
   $('#todayDate').textContent = new Date(day + 'T12:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
   box.replaceChildren();
+  const w = wrapCard(); if (w) box.append(w);
 
   // Money
   const money = tcard('Money', 'Add expense', () => goTo('money', '#amount'));
@@ -1802,19 +1837,90 @@ let insData = null, insPick = null, insRaw = { exps: [], tips: [] };
 const keepLoggedMonths = stats => stats.filter((s, i) => s.hasData || i === stats.length - 1);
 console.assert(keepLoggedMonths([{ hasData: false, inn: 5 }, { hasData: true }, { hasData: false, inn: 5 }, { hasData: false }]).length === 2,
   'keepLoggedMonths self-check failed');
+// The last 12 months of history, one stats row per month that has something logged (plus the current month).
+async function fetchMonthStats() {
+  const months = monthsBack(today().slice(0, 7), 12);
+  const [ex, tp] = await Promise.all([expCol.where('month', '>=', months[0]).get(), tipCol.where('month', '>=', months[0]).get()]);
+  const exps = [...ex.docs.map(d => d.data()), ...mySharedRows().filter(r => r.month >= months[0])];
+  insRaw = { exps, tips: tp.docs.map(d => d.data()) };
+  return keepLoggedMonths(insightStats(months, exps, insRaw.tips, events, categories));
+}
 async function loadInsights() {
   if (!expCol) { $('#insStatus').textContent = 'Sign in to see your insights.'; return; }
-  const cur = today().slice(0, 7), months = monthsBack(cur, 12);
   if (!insData) $('#insStatus').textContent = 'Crunching your numbers…';
   try {
-    const [ex, tp] = await Promise.all([expCol.where('month', '>=', months[0]).get(), tipCol.where('month', '>=', months[0]).get()]);
-    const exps = [...ex.docs.map(d => d.data()), ...mySharedRows().filter(r => r.month >= months[0])];
-    const stats = insightStats(months, exps, tp.docs.map(d => d.data()), events, categories);
-    insRaw = { exps, tips: tp.docs.map(d => d.data()) };
-    insData = keepLoggedMonths(stats);
+    insData = await fetchMonthStats();
     $('#insStatus').textContent = '';
     renderInsights();
   } catch { $('#insStatus').textContent = 'Could not load your history. Check your connection and open Insights again.'; }
+}
+
+// ---- Search spending: by what it was for or its category, over a chosen period ----
+let allExp = null, srchTimer = null;   // every personal expense, loaded on the first search and dropped when expenses change
+function searchFrom(when, cur) {
+  return when === 'month' ? cur : when === '3' ? monthsBack(cur, 3)[0] : when === 'year' ? cur.slice(0, 4) + '-01' : '';
+}
+console.assert(searchFrom('3', '2026-02') === '2025-12' && searchFrom('year', '2026-10') === '2026-01' && searchFrom('all', '2026-10') === '', 'searchFrom self-check failed');
+async function runSearch() {
+  const q = $('#srchText').value.trim().toLowerCase(), out = $('#srchTotal'), ul = $('#srchList');
+  ul.replaceChildren();
+  if (!q) { out.textContent = ''; return; }
+  if (!expCol) { out.textContent = 'Sign in to search.'; return; }
+  if (!allExp) {
+    out.textContent = 'Searching…';
+    try { allExp = (await expCol.get()).docs.map(d => d.data()); } catch { out.textContent = 'Could not search. Check your connection.'; return; }
+  }
+  const from = searchFrom($('#srchWhen').value, today().slice(0, 7));
+  const rows = [...allExp, ...mySharedRows()]
+    .filter(e => e.month >= from && ((e.note || '').toLowerCase().includes(q) || (e.category || '').toLowerCase().includes(q)))
+    .sort((a, b) => b.date.localeCompare(a.date));
+  const total = rows.reduce((a, e) => a + e.cents, 0), label = $('#srchWhen').selectedOptions[0].textContent.toLowerCase();
+  out.textContent = rows.length ? `${fmt(total)} on "${$('#srchText').value.trim()}" ${label} · ${rows.length} purchase${rows.length > 1 ? 's' : ''}` : `Nothing matching "${$('#srchText').value.trim()}" ${label}.`;
+  for (const e of rows.slice(0, 50)) {
+    const li = document.createElement('li');
+    li.innerHTML = '<span class="when"></span><span class="what"><span></span><small></small></span><span class="num"></span><span></span>';
+    li.children[0].textContent = new Date(e.date + 'T12:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: e.date.slice(0, 4) === today().slice(0, 4) ? undefined : '2-digit' });
+    li.querySelector('.what span').textContent = e.note || e.category;
+    li.querySelector('.what small').textContent = e.note ? e.category + (e.shared ? ' · your share' : '') : '';
+    li.children[2].textContent = fmt(e.cents);
+    ul.append(li);
+  }
+  if (rows.length > 50) { const li = document.createElement('li'); li.className = 'muted'; li.style.display = 'block'; li.textContent = `Showing the latest 50 of ${rows.length}.`; ul.append(li); }
+}
+$('#srchText').addEventListener('input', () => { clearTimeout(srchTimer); srchTimer = setTimeout(runSearch, 300); });
+$('#srchWhen').onchange = runSearch;
+
+// ---- Month-end wrap-up: shown on Today for the first 3 days of a month, until dismissed ----
+let wrap = null, wrapLoading = false;   // wrap: {m, s, prev, best} for last month, once loaded
+const wrapKey = m => 'wrapSeen-' + m;
+async function loadWrap() {
+  const day = today(), last = prevMonthOf(day.slice(0, 7));
+  let seen = false; try { seen = localStorage.getItem(wrapKey(last)) === '1'; } catch {}
+  if (Number(day.slice(8)) > 3 || seen || !expCol || wrapLoading) return;
+  wrapLoading = true;
+  try {
+    const st = await fetchMonthStats(), i = st.findIndex(s => s.m === last);
+    if (i < 0 || !st[i].hasData) return;   // nothing logged last month, nothing to sum up
+    const done = st.filter(s => s.m <= last && s.rate != null);
+    wrap = { m: last, s: st[i], prev: i > 0 ? st[i - 1] : null,
+      best: done.length > 1 && st[i].rate != null && done.every(s => s.rate <= st[i].rate) };
+    renderToday();
+  } catch {} finally { wrapLoading = false; }
+}
+function wrapCard() {
+  if (!wrap || today().slice(0, 7) === wrap.m || Number(today().slice(8)) > 3) return null;
+  try { if (localStorage.getItem(wrapKey(wrap.m)) === '1') return null; } catch {}
+  const { s, prev, best } = wrap, name = monthName(wrap.m).split(' ')[0];
+  const c = tcard(`${name} wrap-up`, 'Got it', () => { try { localStorage.setItem(wrapKey(wrap.m), '1'); } catch {} renderToday(); });
+  const pct = r => `${Math.round(r * 100)}%`;
+  c.append(tline(s.rate == null ? `You spent ${fmt(s.out)} in ${name}.`
+    : best ? `You kept ${pct(s.rate)} of what came in. Your best month yet!` : `You kept ${pct(s.rate)} of what came in.`, 'big num'));
+  const rows = [['Came in', fmt(s.inn)], ['Went out', fmt(s.out)]];
+  if (prev) rows.push([`Spending vs ${monShort(prev.m)}`, `${s.spent <= prev.spent ? '−' : '+'}${fmt(Math.abs(s.spent - prev.spent))}`, s.spent <= prev.spent ? 'down' : 'up']);
+  if (s.health != null) rows.push(['Budget health', `${s.health} / 100`]);
+  c.append(tlist(rows));
+  c.querySelector('.big').style.fontSize = '1.2rem';
+  return c;
 }
 function renderInsights() {
   const st = insData, n = st.length, cur = st[n - 1], done = st.slice(0, -1); // the current month is still in progress
@@ -2241,7 +2347,7 @@ function subscribeMonth() {
   if (unsubExp) unsubExp();
   expenses = [];
   unsubExp = expCol.where('month', '==', month).onSnapshot(
-    s => { expenses = s.docs.map(d => ({ id: d.id, ...d.data() })); render(); },
+    s => { expenses = s.docs.map(d => ({ id: d.id, ...d.data() })); allExp = null; render(); },
     () => status('Lost connection to your saved data. Reload the page.', true));
   if (unsubPrev) unsubPrev();
   prevExpenses = [];
@@ -2295,7 +2401,7 @@ function startData(db, uid) {
   habitRef.onSnapshot(s => { const d = s.exists ? s.data() : {}; habits = { list: d.list || [], done: d.done || {} }; renderHabits(); },
     () => status('Lost connection to your saved data. Reload the page.', true, $('#habitStatus')));
   calRef = db.doc(`data/users/${uid}/calendar`);
-  calRef.onSnapshot(s => { events = s.exists ? (s.data().events || []) : []; render(); },
+  calRef.onSnapshot(s => { events = s.exists ? (s.data().events || []) : []; render(); loadWrap(); },
     () => status('Lost connection to your saved data. Reload the page.', true, $('#evStatus')));
 }
 </script>
@@ -2332,13 +2438,13 @@ const fmtCode = c => c.replace(/(.{4})(?=.)/g, '$1-');
 const cleanCode = s => s.toUpperCase().replace(/[^A-Z0-9]/g, '');
 console.assert(fmtCode('K7QDM2XP9HTA') === 'K7QD-M2XP-9HTA' && cleanCode(' k7qd-m2xp 9hta ') === 'K7QDM2XP9HTA', 'invite code self-check failed');
 
-let hh = null, hhId = null, hhPtr = null, hhUnsubs = [], shared = [], vote = null, voteUnsub = null, splits = [], sbills = [], chores = [];
+let hh = null, hhId = null, hhPtr = null, hhUnsubs = [], shared = [], vote = null, voteUnsub = null, splits = [], sbills = [], chores = [], notes = [];
 const FV = () => firebase.firestore.FieldValue;
 const nameOf = u => u === fuid ? 'you' : (hh?.names?.[u] || 'your roommate');
 function hhStop() {
   hhUnsubs.forEach(u => u()); hhUnsubs = [];
   if (voteUnsub) voteUnsub(); voteUnsub = null;
-  hh = null; hhId = null; shared = []; vote = null; splits = []; sbills = []; chores = [];
+  hh = null; hhId = null; shared = []; vote = null; splits = []; sbills = []; chores = []; notes = [];
 }
 function startHousehold(db, uid) {
   hhPtr = db.doc(`data/users/${uid}/household`);   // which household I'm in: {id}
@@ -2353,13 +2459,14 @@ function startHousehold(db, uid) {
     hhUnsubs.push(ref.collection('expenses').orderBy('created').onSnapshot(q => { splits = q.docs.map(d => ({ id: d.id, ...d.data() })); render(); renderHome(); }, () => {}));
     hhUnsubs.push(ref.collection('bills').onSnapshot(q => { sbills = q.docs.map(d => ({ id: d.id, ...d.data() })); renderHome(); }, () => {}));
     hhUnsubs.push(ref.collection('chores').onSnapshot(q => { chores = q.docs.map(d => ({ id: d.id, ...d.data() })); renderHome(); }, () => {}));
+    hhUnsubs.push(ref.collection('notes').orderBy('created', 'desc').onSnapshot(q => { notes = q.docs.map(d => ({ id: d.id, ...d.data() })); renderNotes(); }, () => {}));
     watchVote();
   }, () => {});
 }
 function renderHousehold() {
   const inHH = !!(hhId && hh);
   $('#hhSetup').hidden = !fuid || inHH;
-  for (const id of ['#sharedShop', '#voteBox', '#hhBalance', '#hhBills', '#hhChores']) $(id).hidden = !inHH;
+  for (const id of ['#sharedShop', '#voteBox', '#hhBalance', '#hhBills', '#hhChores', '#hhNotes']) $(id).hidden = !inHH;
   if (!inHH) return;
   $('#hhMembers').textContent = hh.members.map(u => u === fuid ? 'You' : (hh.names?.[u] || 'Roommate')).join(' & ');
   $('#hhCodeShow').textContent = fmtCode(hhId);
@@ -2671,6 +2778,30 @@ function renderHome() {
     cl.append(li);
   }
 }
+
+// House notes: a shared board, newest first.
+function renderNotes() {
+  const ul = $('#noteList'); ul.replaceChildren();
+  $('#notesTitle').textContent = `House notes${notes.length ? ` (${notes.length})` : ''}`;
+  if (!notes.length) { const li = document.createElement('li'); li.className = 'muted'; li.style.display = 'block'; li.textContent = 'No notes yet. Add the Wi-Fi password, the landlord\'s number, or anything you both need.'; ul.append(li); }
+  for (const n of notes) {
+    const li = document.createElement('li'); li.className = 'kcal';
+    li.innerHTML = '<span class="what"><span style="white-space:pre-wrap"></span><small></small></span><span></span><button class="del" type="button">✕</button>';
+    li.querySelector('.what span').textContent = n.text;
+    li.querySelector('.what small').textContent = `${Name(n.by)} · ${shortDate(localDay(n.created))}`;
+    const del = li.querySelector('.del');
+    del.setAttribute('aria-label', 'Delete this note');
+    armDelete(del, 'Delete', () => hhCol('notes').doc(n.id).delete().catch(() => status('Could not delete that. Try again.', true, $('#noteStatus'))));
+    ul.append(li);
+  }
+}
+$('#noteForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const el = $('#noteStatus'), text = $('#noteText').value.trim();
+  if (!text) return status('Write the note first.', true, el);
+  try { await hhCol('notes').add({ text, by: fuid, created: Date.now() }); $('#noteText').value = ''; status('Note added.', false, el); }
+  catch { status('Could not add that note. Try again.', true, el); }
+});
 
 $('#settleBtn').onclick = async () => {
   const net = hhBalances(splits, hh.members), v = net[fuid], o = hh.members.find(m => m !== fuid);
