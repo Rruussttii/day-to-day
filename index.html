@@ -32,7 +32,47 @@
   --bg: #121815; --card: #1a221e; --fg: #e4ebe6; --muted: #93a39a; --line: #2c3832;
   --accent: #4cc38a; --accent-fg: #0d1a13; --warn: #e0a84a; --over: #ef6b5d; --track: #26302b; --bill: #bd5a8c; --bill-ink: #e58fb6; --in: #4a86cc; --out: #c27c35; color-scheme: dark }
 
-body { background: var(--bg); color: var(--fg); font: 15px/1.5 var(--body); padding: 0 16px; }
+/* Main color choices (Settings). Each keeps readable button text in both themes. */
+:root[data-accent="teal"] { --accent: #0f766e; }
+:root[data-accent="purple"] { --accent: #6d4bc4; }
+:root[data-accent="slate"] { --accent: #475569; }
+@media (prefers-color-scheme: dark) {
+  :root[data-accent="teal"]:not([data-theme="light"]) { --accent: #2dd4bf; }
+  :root[data-accent="purple"]:not([data-theme="light"]) { --accent: #a78bfa; }
+  :root[data-accent="slate"]:not([data-theme="light"]) { --accent: #94a3b8; }
+}
+:root[data-theme="dark"][data-accent="teal"] { --accent: #2dd4bf; }
+:root[data-theme="dark"][data-accent="purple"] { --accent: #a78bfa; }
+:root[data-theme="dark"][data-accent="slate"] { --accent: #94a3b8; }
+:root[data-text="large"] { font-size: 112.5%; }
+
+body { background: var(--bg); color: var(--fg); font: 0.9375rem/1.5 var(--body); padding: 0 16px; }
+.head-right { display: flex; gap: 8px; align-items: center; margin-left: auto; }
+.gear { display: inline-flex; align-items: center; justify-content: center; padding: 7px; color: var(--muted); }
+.gear:hover { color: var(--fg); }
+dialog#settingsDlg { border: 1px solid var(--line); border-radius: 16px; background: var(--card); color: var(--fg); width: min(480px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); padding: 16px; box-sizing: border-box; }
+dialog#settingsDlg::backdrop { background: rgb(0 0 0 / 0.45); }
+.settings { display: grid; gap: 18px; }
+.settings section { display: grid; gap: 10px; }
+.setrow { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.seg { display: flex; background: var(--track); border-radius: 10px; padding: 3px; gap: 2px; }
+.seg label { padding: 6px 12px; border-radius: 8px; cursor: pointer; color: var(--muted); font-weight: 600; font-size: 0.9rem; }
+.seg input, .swatches input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.seg label:has(input:checked) { background: var(--card); color: var(--fg); box-shadow: 0 1px 2px rgb(0 0 0 / 0.15); }
+.seg label:has(input:focus-visible), .swatches label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+.swatches { display: flex; gap: 10px; flex-wrap: wrap; }
+.swatches label { display: grid; justify-items: center; gap: 4px; cursor: pointer; font-size: 0.75rem; color: var(--muted); }
+.swatches i { width: 30px; height: 30px; border-radius: 50%; display: block; box-shadow: inset 0 0 0 2px rgb(255 255 255 / 0.25); }
+.swatches label:has(input:checked) { color: var(--fg); font-weight: 600; }
+.swatches label:has(input:checked) i { outline: 2px solid var(--fg); outline-offset: 2px; }
+.switch-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--line); cursor: pointer; }
+.switch-row small { display: block; color: var(--muted); font-size: 0.8rem; }
+input.switch { appearance: none; -webkit-appearance: none; flex: none; width: 46px; height: 28px; border-radius: 99px; background: var(--track); position: relative; cursor: pointer; padding: 0; border: 1px solid var(--line); transition: background .15s; }
+input.switch::before { content: ""; position: absolute; top: 2px; left: 2px; width: 22px; height: 22px; border-radius: 50%; background: var(--card); box-shadow: 0 1px 3px rgb(0 0 0 / 0.3); transition: transform .15s; }
+input.switch:checked { background: var(--accent); border-color: var(--accent); }
+input.switch:checked::before { transform: translateX(18px); }
+input.switch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { input.switch, input.switch::before { transition: none; } }
 main { max-width: 640px; margin: 0 auto; padding-block: 20px 48px; display: grid; gap: 20px; }
 h1, h2 { font-family: var(--display); margin: 0; text-wrap: balance; }
 h1 { font-size: 1.6rem; font-weight: 800; letter-spacing: -0.01em; }
@@ -229,10 +269,15 @@ textarea { font: inherit; color: var(--fg); background: var(--bg); border: 1px s
 <main>
   <header>
     <h1>Day to Day</h1>
-    <div class="month" id="monthNav">
-      <button class="icon" id="prev" aria-label="Previous month">‹</button>
-      <span id="monthLabel"></span>
-      <button class="icon" id="next" aria-label="Next month">›</button>
+    <div class="head-right">
+      <div class="month" id="monthNav">
+        <button class="icon" id="prev" aria-label="Previous month">‹</button>
+        <span id="monthLabel"></span>
+        <button class="icon" id="next" aria-label="Next month">›</button>
+      </div>
+      <button type="button" class="icon gear" id="gearBtn" aria-label="Settings" aria-haspopup="dialog">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
     </div>
   </header>
 
@@ -726,6 +771,35 @@ textarea { font: inherit; color: var(--fg); background: var(--bg); border: 1px s
   </section>
   <div class="foot"><span id="whoami"></span><button type="button" class="linkbtn" id="signOut">Sign out</button></div>
   </div>
+  <dialog id="settingsDlg" aria-labelledby="setTitle">
+    <form method="dialog" class="plain settings" id="settingsForm">
+      <div class="env-top"><h2 id="setTitle">Settings</h2><button class="small-btn primary" value="done">Done</button></div>
+      <section aria-label="Appearance">
+        <h3>Appearance</h3>
+        <div class="setrow"><span>Theme</span><div class="seg" role="radiogroup"><label><input type="radio" name="setTheme" value="auto">Match phone</label><label><input type="radio" name="setTheme" value="light">Light</label><label><input type="radio" name="setTheme" value="dark">Dark</label></div></div>
+        <div class="setrow"><span>Color</span><div class="swatches"><label><input type="radio" name="setAccent" value="green"><i style="background:#1f7a54"></i>Green</label><label><input type="radio" name="setAccent" value="teal"><i style="background:#0f766e"></i>Teal</label><label><input type="radio" name="setAccent" value="purple"><i style="background:#6d4bc4"></i>Purple</label><label><input type="radio" name="setAccent" value="slate"><i style="background:#475569"></i>Slate</label></div></div>
+        <div class="setrow"><span>Text size</span><div class="seg" role="radiogroup"><label><input type="radio" name="setText" value="normal">Normal</label><label><input type="radio" name="setText" value="large">Large</label></div></div>
+      </section>
+      <section aria-label="Tabs">
+        <h3>Tabs</h3>
+        <p class="muted" style="margin:0;font-size:0.85rem">Turn off what you don't use. Its data stays saved, and it comes back when you turn it on.</p>
+        <label class="switch-row"><span>Money<small>Spending, bills and paydays, tips, goals, debts</small></span><input type="checkbox" class="switch" data-tab="money" aria-label="Show the Money tab"></label>
+        <label class="switch-row"><span>Food<small>Calories, shopping list, kitchen, meal plan, recipes</small></span><input type="checkbox" class="switch" data-tab="food" aria-label="Show the Food tab"></label>
+        <label class="switch-row"><span>Home<small>Shared with your roommate: costs, bills, chores, notes</small></span><input type="checkbox" class="switch" data-tab="home" aria-label="Show the Home tab"></label>
+        <label class="switch-row"><span>Habits<small>Daily habits and streaks</small></span><input type="checkbox" class="switch" data-tab="habits" aria-label="Show the Habits tab"></label>
+        <label class="switch-row"><span>Insights<small>Monthly trends and charts</small></span><input type="checkbox" class="switch" data-tab="insights" aria-label="Show the Insights tab"></label>
+      </section>
+      <section aria-label="When the app opens">
+        <h3>When the app opens</h3>
+        <div class="setrow"><span>Start on</span><div class="seg" role="radiogroup"><label><input type="radio" name="setStart" value="today">Today</label><label><input type="radio" name="setStart" value="last">Where I left off</label></div></div>
+      </section>
+      <section aria-label="Account">
+        <h3>Account</h3>
+        <p class="muted" style="margin:0" id="setWho">Not signed in.</p>
+        <button type="button" class="del" id="setSignOut" style="justify-self:start">Sign out</button>
+      </section>
+    </form>
+  </dialog>
 </main>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -834,11 +908,11 @@ function upcomingItems() {
 let lastCats = null;   // {month, list: [{name, spent, cap}]} from the last Money render
 function alertLines(day = today()) {
   const lines = [];
-  const bills = upcomingItems().filter(i => i.ev.kind === 'bill');
+  const bills = tabOn('money') ? upcomingItems().filter(i => i.ev.kind === 'bill') : [];
   const in24 = bills.filter(i => ud(i.d) - ud(day) <= DAY), in3 = bills.filter(i => ud(i.d) - ud(day) <= 3 * DAY);
   if (in24.length) lines.push(['over', `Due within 24 hours: ${in24.map(i => `${i.ev.name} (${fmt(i.ev.cents)})`).join(', ')}`]);
   else if (in3.length) lines.push(['warn', `Due within 3 days: ${in3.map(i => `${i.ev.name} (${fmt(i.ev.cents)})`).join(', ')}`]);
-  if (lastCats && lastCats.month === day.slice(0, 7)) {
+  if (tabOn('money') && lastCats && lastCats.month === day.slice(0, 7)) {
     const [y, m] = day.split('-').map(Number), daysLeft = new Date(y, m, 0).getDate() - Number(day.slice(8)) + 1;
     for (const c of lastCats.list) {
       if (c.cap <= 0) continue;
@@ -846,7 +920,7 @@ function alertLines(day = today()) {
       else if (c.spent >= c.cap * 0.85) lines.push(['warn', `${c.name}: ${fmt(c.cap - c.spent)} left for ${daysLeft} day${daysLeft > 1 ? 's' : ''}`]);
     }
   }
-  const off = food.filter(f => f.status === 'have' && f.expires && ud(f.expires) - ud(day) <= DAY);
+  const off = tabOn('food') ? food.filter(f => f.status === 'have' && f.expires && ud(f.expires) - ud(day) <= DAY) : [];
   if (off.length) lines.push([off.some(f => f.expires < day) ? 'over' : 'warn',
     `Food to use up: ${off.map(f => `${f.name} (${expState(f.expires)[1].toLowerCase()})`).join(', ')}`]);
   return lines;
@@ -1015,7 +1089,52 @@ let food = [];        // [{id, name, status: 'need'|'have'}]
 let foodRef = null;
 const TABS = ['today', 'money', 'food', 'home', 'habits', 'insights'];
 const cap = s => s[0].toUpperCase() + s.slice(1);
+// ---- Settings: saved on this device right away, and synced through your account ----
+const DEFAULT_SETTINGS = { theme: 'auto', accent: 'green', text: 'normal', start: 'last', tabs: { money: true, food: true, home: true, habits: true, insights: true } };
+function mergeSettings(saved) { return { ...DEFAULT_SETTINGS, ...(saved || {}), tabs: { ...DEFAULT_SETTINGS.tabs, ...((saved || {}).tabs || {}) } }; }
+let settings = mergeSettings((() => { try { return JSON.parse(localStorage.getItem('settings') || 'null'); } catch { return null; } })());
+let settingsRef = null, curTab = 'today';
+const tabOn = t => t === 'today' || settings.tabs[t] !== false;
+console.assert(mergeSettings({ tabs: { food: false } }).tabs.money === true && mergeSettings({ tabs: { food: false } }).tabs.food === false
+  && mergeSettings(null).accent === 'green', 'settings self-check failed');
+function applySettings() {
+  const r = document.documentElement;
+  if (settings.theme === 'auto') r.removeAttribute('data-theme'); else r.setAttribute('data-theme', settings.theme);
+  r.dataset.accent = settings.accent; r.dataset.text = settings.text;
+  for (const t of TABS) if (t !== 'today') $(`#tab${cap(t)}`).hidden = !tabOn(t);
+  if (!tabOn(curTab)) showTab('today');
+  renderToday(); renderAlerts();
+}
+function saveSettings(next) {
+  settings = mergeSettings(next);
+  try { localStorage.setItem('settings', JSON.stringify(settings)); } catch {}
+  applySettings();
+  if (settingsRef) settingsRef.set(settings).catch(() => {});
+}
+function fillSettingsForm() {
+  const f = $('#settingsForm');
+  f.elements.setTheme.value = settings.theme; f.elements.setAccent.value = settings.accent;
+  f.elements.setText.value = settings.text; f.elements.setStart.value = settings.start;
+  for (const cb of f.querySelectorAll('input.switch')) cb.checked = tabOn(cb.dataset.tab);
+}
+$('#gearBtn').onclick = () => {
+  fillSettingsForm();
+  $('#setWho').textContent = $('#whoami').textContent || 'Not signed in.';
+  $('#setSignOut').hidden = !$('#whoami').textContent;
+  $('#settingsDlg').showModal();
+};
+// Every change applies immediately; Done just closes.
+$('#settingsForm').addEventListener('change', () => {
+  const f = $('#settingsForm'), tabs = {};
+  for (const cb of f.querySelectorAll('input.switch')) tabs[cb.dataset.tab] = cb.checked;
+  saveSettings({ theme: f.elements.setTheme.value, accent: f.elements.setAccent.value, text: f.elements.setText.value, start: f.elements.setStart.value, tabs });
+});
+$('#settingsDlg').addEventListener('click', e => { if (e.target === $('#settingsDlg')) $('#settingsDlg').close(); });   // tap outside to close
+$('#setSignOut').onclick = () => { $('#settingsDlg').close(); $('#signOut').click(); };
+
 function showTab(name) {
+  if (!tabOn(name)) name = 'today';
+  curTab = name;
   for (const t of TABS) {
     $(`#${t}Pane`).hidden = t !== name;
     $(`#tab${cap(t)}`).setAttribute('aria-pressed', t === name);
@@ -1780,9 +1899,10 @@ function renderToday() {
   if (!box) return;
   $('#todayDate').textContent = new Date(day + 'T12:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
   box.replaceChildren();
-  const w = wrapCard(); if (w) box.append(w);
+  const w = tabOn('money') && wrapCard(); if (w) box.append(w);
 
   // Money
+  if (tabOn('money')) {
   const money = tcard('Money', 'Add expense', () => goTo('money', '#amount'));
   if (lastMoney && lastMoney.month === day.slice(0, 7)) {
     const big = tline(fmt(lastMoney.left), 'big num'); if (lastMoney.left < 0) big.style.color = 'var(--over)';
@@ -1798,8 +1918,10 @@ function renderToday() {
     return [`${ev.kind === 'pay' ? 'Payday' : ev.name} · ${when}`, `${ev.kind === 'pay' ? '+' : ''}${fmt(ev.cents)}`, ev.kind === 'pay' ? 'down' : n <= 1 ? 'up' : ''];
   })) : tline('No unpaid bills or paydays this week.', 'muted'));
   box.append(bills);
+  }
 
   // Calories
+  if (tabOn('food')) {
   const eaten = kcalSum(day), goal = kcal.goal;
   const cal = tcard('Calories', 'Log food', () => goTo('food', '#kcalName'));
   cal.append(tline(goal ? `${eaten.toLocaleString('en-US')} of ${goal.toLocaleString('en-US')} cal` : `${eaten.toLocaleString('en-US')} cal eaten`, 'big num'));
@@ -1812,8 +1934,10 @@ function renderToday() {
   const meals = tcard('Meals today', 'Plan', () => goTo('food'));
   meals.append(plan.lunch || plan.dinner ? tlist([['Lunch', plan.lunch?.name || '—'], ['Dinner', plan.dinner?.name || '—']]) : tline('Nothing planned for today.', 'muted'));
   box.append(meals);
+  }
 
   // Habits, tickable right here
+  if (tabOn('habits')) {
   const done = habits.done[day] || [];
   const hab = tcard('Habits', 'All habits', () => goTo('habits'));
   if (!habits.list.length) hab.append(tline('No habits yet.', 'muted'));
@@ -1829,10 +1953,11 @@ function renderToday() {
     hab.append(ul);
   }
   box.append(hab);
+  }
 
   // Home: my chores that are due or overdue, and where the money stands with my roommate.
   // (The household code loads in a later script, so check it exists before using it.)
-  if (typeof hh !== 'undefined' && hh) {
+  if (typeof hh !== 'undefined' && hh && tabOn('home')) {
     const home = tcard('Home', 'Open', () => goTo('home'));
     const myChores = chores.map(c => ({ c, st: choreState(c, day) })).filter(x => x.st.who === fuid && x.st.status !== 'upcoming');
     home.append(tline(myBalanceText(), 'muted'));
@@ -1842,6 +1967,7 @@ function renderToday() {
   }
 
   // Food expiring within 3 days
+  if (!tabOn('food')) return;
   const expiring = food.filter(f => f.status === 'have' && f.expires && ud(f.expires) - ud(day) <= 3 * DAY).sort((a, b) => a.expires.localeCompare(b.expires));
   const fd = tcard('Use it up', 'Food', () => goTo('food'));
   fd.append(expiring.length ? tlist(expiring.map(f => { const [cls, words] = expState(f.expires); return [f.name, words, cls === 'over' ? 'up' : '']; }))
@@ -2578,10 +2704,18 @@ function subscribeMonth() {
 
 render(); renderFood(); renderHabits();
 { let t = null; try { t = localStorage.getItem('tab'); } catch {} if (t === 'meals') t = 'food'; // Meals was merged into Food
-  showTab(TABS.includes(t) ? t : 'today'); }
+  applySettings();
+  showTab(settings.start === 'last' && TABS.includes(t) ? t : 'today'); }
 renderKitchen();
 renderKcal();
 function startData(db, uid) {
+  settingsRef = db.doc(`data/users/${uid}/settings`);
+  settingsRef.onSnapshot(s => {
+    if (!s.exists) { settingsRef.set(settings).catch(() => {}); return; }   // first time: keep this device's choices
+    settings = mergeSettings(s.data());
+    try { localStorage.setItem('settings', JSON.stringify(settings)); } catch {}
+    applySettings();
+  }, () => {});
   // Private to the signed-in person: nobody else who opens the link can see it.
   budgetRef = db.doc(`data/users/${uid}/budget`);
   expCol = budgetRef.collection('expenses');
