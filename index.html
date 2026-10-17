@@ -659,7 +659,7 @@ textarea { font: inherit; color: var(--fg); background: var(--bg); border: 1px s
     <details class="addbox"><summary>+ Add bill or payday</summary>
 <form class="plain" id="eventForm" autocomplete="off">
       <div class="row">
-        <label><span class="label">Type</span><select id="evKind"><option value="bill">Bill due</option><option value="pay">Payday</option></select></label>
+        <label><span class="label">Type</span><select id="evKind"><option value="bill">Bill due</option><option value="rent">Rent</option><option value="pay">Payday</option></select></label>
         <label><span class="label">Name</span><input id="evName" maxlength="40" placeholder="Phone bill" required></label>
       </div>
       <div class="row">
@@ -948,7 +948,7 @@ function renderSoon() {
     const li = document.createElement('li');
     li.innerHTML = '<span class="kind"></span><span class="what"><span></span><small></small></span><span class="num"></span><span></span>';
     li.querySelector('.kind').className = 'kind ' + ev.kind;
-    li.querySelector('.kind').textContent = ev.kind === 'pay' ? 'Pay' : 'Bill';
+    li.querySelector('.kind').textContent = ev.kind === 'pay' ? 'Pay' : ev.cat === 'Rent' ? 'Rent' : 'Bill';
     li.querySelector('.what span').textContent = ev.name;
     li.querySelector('.what small').textContent = `${ev.kind === 'pay' ? 'Payday' : 'Due'} ${when} · ${shortDate(d)}`;
     li.querySelector('.num').replaceChildren(money(ev.kind === 'pay' ? ev.cents : -ev.cents));
@@ -1037,7 +1037,7 @@ function renderCal() {
       li.querySelector('.what').classList.toggle('done', paid);
     }
     li.querySelector('.what span').textContent = ev.name;
-    li.querySelector('.what small').textContent = REPEAT_LABEL[ev.repeat] ? `Repeats ${REPEAT_LABEL[ev.repeat]}` : '';
+    li.querySelector('.what small').textContent = [ev.cat, REPEAT_LABEL[ev.repeat] ? `Repeats ${REPEAT_LABEL[ev.repeat]}` : ''].filter(Boolean).join(' · ');
     li.querySelector('.num').replaceChildren(money(ev.kind === 'pay' ? ev.cents : -ev.cents));
     const del = li.querySelector('.del');
     del.setAttribute('aria-label', `Delete ${ev.name}`);
@@ -1047,12 +1047,16 @@ function renderCal() {
       catch { status('Could not delete that. Try again.', true, $('#evStatus')); }
     };
     makeEditable(li.querySelector('.what span'), ev.name, () => openEditor(li, [
-      { key: 'kind', label: 'Type', type: 'select', value: ev.kind, options: [['bill', 'Bill due'], ['pay', 'Payday']] },
+      { key: 'kind', label: 'Type', type: 'select', value: ev.kind === 'pay' ? 'pay' : ev.cat === 'Rent' ? 'rent' : 'bill', options: [['bill', 'Bill due'], ['rent', 'Rent'], ['pay', 'Payday']] },
       { key: 'name', label: 'Name', type: 'text', value: ev.name, required: true },
       { key: 'cents', label: 'Amount', type: 'money', value: ev.cents, required: true },
       { key: 'date', label: 'First date', type: 'date', value: ev.date, required: true },
       { key: 'repeat', label: 'Repeats', type: 'select', value: ev.repeat, options: [['none', 'Just once'], ['weekly', 'Every week'], ['biweekly', 'Every 2 weeks'], ['monthly', 'Every month']] },
-    ], async v => { await saveEvents(events.map(e => e.id === ev.id ? { ...e, ...v } : e)); },
+    ], async v => {
+      const { kind: type, ...rest } = v, next = { ...ev, ...rest, kind: type === 'pay' ? 'pay' : 'bill' };
+      if (type === 'rent') next.cat = 'Rent'; else delete next.cat;
+      await saveEvents(events.map(e => e.id === ev.id ? next : e));
+    },
     { onCancel: renderCal, onDelete: () => saveEvents(events.filter(e => e.id !== ev.id)) }));
     list.append(li);
   }
@@ -2120,7 +2124,7 @@ function billRows(from, day = today()) {
   for (const ev of events) {
     if (ev.kind !== 'bill') continue;
     for (let m = from && from > ev.date.slice(0, 7) ? from : ev.date.slice(0, 7); m <= cur; m = ds(Date.UTC(+m.slice(0, 4), +m.slice(5, 7), 1)).slice(0, 7))
-      for (const d of occurrences(ev, m)) if (d <= day) out.push({ category: 'Bills', note: ev.name, cents: ev.cents, date: d, month: m, bill: true });
+      for (const d of occurrences(ev, m)) if (d <= day) out.push({ category: ev.cat || 'Bills', note: ev.name, cents: ev.cents, date: d, month: m, bill: true });
   }
   return out;
 }
@@ -2135,7 +2139,7 @@ console.assert((() => {
 // Categories to look up: your list plus any category that has spending (older ones, Shared costs, Bills).
 function fillLookupCats() {
   const sel = $('#srchCat'), prev = sel.value;
-  const names = [...new Set([...categoryNames(), ...(allExp || []).map(e => e.category), ...mySharedRows().map(e => e.category), ...(events.some(e => e.kind === 'bill') ? ['Bills'] : [])])].filter(Boolean);
+  const names = [...new Set([...categoryNames(), ...(allExp || []).map(e => e.category), ...mySharedRows().map(e => e.category), ...events.filter(e => e.kind === 'bill').map(e => e.cat || 'Bills')])].filter(Boolean);
   sel.replaceChildren(new Option('All categories', ''), ...names.map(n => new Option(n, n)));
   sel.value = names.includes(prev) ? prev : '';
 }
@@ -2441,13 +2445,21 @@ $('#habitForm').addEventListener('submit', async e => {
   if (await saveHabits(next, el)) { $('#habitName').value = ''; status(`Added ${name}.`, false, el); }
 });
 
+$('#evKind').onchange = () => {
+  const name = $('#evName'), rent = $('#evKind').value === 'rent';
+  if (rent && !name.value.trim()) name.value = 'Rent';
+  if (!rent && name.value === 'Rent') name.value = '';
+  if (rent) $('#evRepeat').value = 'monthly';
+};
 $('#eventForm').addEventListener('submit', async ev => {
   ev.preventDefault();
   const el = $('#evStatus'), cents = toCents($('#evAmount').value), name = $('#evName').value.trim();
   if (!name) return status('Give it a name, like "Paycheck" or "Rent".', true, el);
   if (!cents) return status('Enter an amount like 65.00.', true, el);
   if (!calRef) return status('Sign in to save.', true, el);
-  const item = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), kind: $('#evKind').value, name, cents, date: selDate, repeat: $('#evRepeat').value };
+  // Rent is stored as a bill with cat: 'Rent', so it gets every bill feature (alerts, Paid, calendar export).
+  const type = $('#evKind').value;
+  const item = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), kind: type === 'pay' ? 'pay' : 'bill', ...(type === 'rent' ? { cat: 'Rent' } : {}), name, cents, date: selDate, repeat: $('#evRepeat').value };
   try {
     await saveEvents([...events, item]);
     $('#evName').value = ''; $('#evAmount').value = '';
