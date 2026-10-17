@@ -2252,7 +2252,17 @@ $('#importFile').onchange = async () => {
   addEventListener('online', net); addEventListener('offline', net); net();
 })();
 
-if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+if ('serviceWorker' in navigator) addEventListener('load', async () => {
+  const hadController = !!navigator.serviceWorker.controller;
+  // A new version took over: reload once so the screen shows it. (Skipped on the very first install.)
+  let reloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadController && !reloaded) { reloaded = true; location.reload(); } });
+  try {
+    const reg = await navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' });
+    // iPhone home-screen apps resume without reloading, so check for an update each time the app comes back.
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update().catch(() => {}); });
+  } catch {}
+});
 </script>
 </body>
 </html>
