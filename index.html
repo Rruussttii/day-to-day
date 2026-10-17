@@ -694,10 +694,7 @@ textarea { font: inherit; color: var(--fg); background: var(--bg); border: 1px s
         <label id="catField"><span class="label">Category</span><select id="category" required></select></label>
         <label id="hoursField" hidden><span class="label">Hours worked (optional)</span><input id="hours" inputmode="decimal" placeholder="6"></label>
       </div>
-      <div class="row">
-        <label><span class="label">What for</span><input id="note" maxlength="80" placeholder="Coffee"></label>
-        <label><span class="label">Date</span><input id="date" type="date" required></label>
-      </div>
+      <label><span class="label">Date</span><input id="date" type="date" required></label>
       <label class="inline" id="quickField"><input type="checkbox" id="saveQuick"> Also save as a one-tap quick-add button</label>
       <button class="primary" type="submit" id="addBtn">Add expense</button>
       <div class="status" id="status" role="status"></div>
@@ -828,6 +825,8 @@ console.assert(toCents('12.5') === 1250 && toCents('$1,234.56') === 123456 && to
 
 const today = () => new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD in local time
 const STARTER = ['Rent', 'Groceries', 'Gas', 'Bills', 'Eating out', 'Fun'];
+// Categories to pick from: your saved ones (or the starter list), always ending with "Other".
+const categoryNames = () => { const names = categories.length ? categories.map(c => c.name) : STARTER; return names.some(n => sameName(n, 'Other')) ? names : [...names, 'Other']; };
 let month = today().slice(0, 7);
 let categories = [];   // [{name, cents}]
 let expenses = [];     // this month's docs
@@ -1606,7 +1605,7 @@ function renderQuick() {
       b.onclick = () => openEditor(host, [
         { key: 'label', label: 'Button label', type: 'text', value: q.label, required: true },
         { key: 'cents', label: 'Amount', type: 'money', value: q.cents, required: true },
-        { key: 'category', label: 'Category', type: 'select', value: q.category, options: [...new Set([...(categories.length ? categories.map(c => c.name) : STARTER), q.category])].map(c => [c, c]) },
+        { key: 'category', label: 'Category', type: 'select', value: q.category, options: [...new Set([...categoryNames(), q.category])].map(c => [c, c]) },
       ], async v => { if (await saveQuick(quick.map(z => z.id === q.id ? { ...z, ...v } : z))) close(); else return 'Could not save that. Try again.'; },
       { onCancel: close, onDelete: async () => { await saveQuick(quick.filter(z => z.id !== q.id)); close(); } });
     } else {
@@ -2488,7 +2487,7 @@ function render() {
       }
       makeEditable(li.children[1], e.note || n, () => openEditor(li, [
         { key: 'cents', label: 'Amount', type: 'money', value: e.cents, required: true },
-        { key: 'category', label: 'Category', type: 'select', value: e.category, options: [...new Set([...(categories.length ? categories.map(c => c.name) : STARTER), e.category])].map(c => [c, c]) },
+        { key: 'category', label: 'Category', type: 'select', value: e.category, options: [...new Set([...categoryNames(), e.category])].map(c => [c, c]) },
         { key: 'note', label: 'What for', type: 'text', value: e.note || '' },
         { key: 'date', label: 'Date', type: 'date', value: e.date, required: true },
       ], async v => { await expCol.doc(e.id).update({ ...v, month: v.date.slice(0, 7) }); allExp = null; },
@@ -2513,7 +2512,7 @@ function render() {
 
   const sel = $('#category'), prev = sel.value; sel.replaceChildren();
   // Without saved envelopes, offer the starter list so expenses can still be filed.
-  for (const n of categories.length ? categories.map(c => c.name) : STARTER) sel.append(new Option(n, n));
+  for (const n of categoryNames()) sel.append(new Option(n, n));
   if ([...sel.options].some(o => o.value === prev)) sel.value = prev;
 
 }
@@ -2635,7 +2634,6 @@ function setMode(m) {
   $('#formTitle').textContent = tip ? 'Add cash tips' : 'Add an expense';
   $('#addBtn').textContent = tip ? 'Add tips' : 'Add expense';
   $('#catField').hidden = tip; $('#quickField').hidden = tip; $('#quickChips').hidden = tip; $('#hoursField').hidden = !tip;
-  $('#note').placeholder = tip ? 'Friday night shift' : 'Coffee';
   $('#amount').placeholder = tip ? '85.00' : '12.50';
   status('');
 }
@@ -2700,11 +2698,11 @@ $('#addForm').addEventListener('submit', async ev => {
   if (!cents) return status('Enter an amount like 12.50.', true);
   if (entryMode === 'tip') {
     if (!tipCol) return status('Sign in to save.', true);
-    const date = $('#date').value || today(), note = $('#note').value.trim(), rawH = $('#hours').value.trim(), hours = rawH ? Number(rawH) : 0;
+    const date = $('#date').value || today(), note = '', rawH = $('#hours').value.trim(), hours = rawH ? Number(rawH) : 0;
     if (rawH && !(hours > 0 && hours <= 24)) return status('Enter hours worked as a number like 6 or 5.5.', true);
     try {
       await tipCol.add({ cents, note, date, month: date.slice(0, 7), created: Date.now(), ...(hours ? { hours } : {}) });
-      $('#amount').value = ''; $('#note').value = ''; $('#hours').value = '';
+      $('#amount').value = ''; $('#hours').value = '';
       status(date.slice(0, 7) === month ? `Added ${fmt(cents)} in tips.` : `Added ${fmt(cents)} in tips to ${monthName(date.slice(0, 7))}.`);
     } catch { status('Could not save your tips. Try again.', true); }
     return;
@@ -2713,14 +2711,14 @@ $('#addForm').addEventListener('submit', async ev => {
   if (!expCol) return status('Sign in to save.', true);
   const date = $('#date').value || today();
   try {
-    const category = $('#category').value, note = $('#note').value.trim();
+    const category = $('#category').value, note = '';
     await expCol.add({ cents, category, note, date, month: date.slice(0, 7), created: Date.now() });
     if ($('#saveQuick').checked) {
       const label = note || category;
       if (!quick.some(q => sameName(q.label, label) && q.cents === cents)) await saveQuick([...quick, { id: newId(), label, cents, category }]);
       $('#saveQuick').checked = false;
     }
-    $('#amount').value = ''; $('#note').value = '';
+    $('#amount').value = '';
     status(date.slice(0, 7) === month ? `Added ${fmt(cents)}.` : `Added ${fmt(cents)} to ${monthName(date.slice(0, 7))}.`);
     $('#amount').focus();
   } catch (e) { status(e?.code === 'quota_exceeded' ? 'Storage is full. Delete old expenses and try again.' : 'Could not save that expense. Try again.', true); }
@@ -3184,9 +3182,10 @@ function renderHome() {
     li.innerHTML = '<span class="when"></span><span class="what"><span></span><small></small></span><span class="num"></span><button class="del" type="button">✕</button>';
     li.children[0].textContent = shortDate(e.date);
     li.querySelector('.what span').textContent = e.kind === 'settle' ? `${Name(e.from)} paid ${Name(e.to)}` : e.desc;
-    li.querySelector('.what small').textContent = e.kind === 'settle' ? 'Settled up'
-      : `${Name(e.paidBy)} paid · ` + (Object.keys(e.split || {}).includes(e.paidBy) ? 'split equally' : 'the others owe it');
-    li.children[2].textContent = fmt(e.cents);
+    li.querySelector('.what small').textContent = e.kind === 'settle' ? `Settled up · ${fmt(e.cents)}`
+      : `${Name(e.paidBy)} paid ${fmt(e.cents)} · ` + (Object.keys(e.split || {}).includes(e.paidBy) ? 'split equally' : 'the others owe it');
+    // Effect on your balance, same math as "Money between you": + means you're owed more, − means you owe more.
+    li.children[2].replaceChildren(money(hhBalances([e], hh.members)[fuid] || 0));
     makeEditable(li.querySelector('.what span'), e.desc || 'this payback', () => openEditor(li, e.kind === 'settle' ? [
       { key: 'cents', label: 'Amount paid back', type: 'money', value: e.cents, required: true },
       { key: 'date', label: 'Date', type: 'date', value: e.date, required: true },
