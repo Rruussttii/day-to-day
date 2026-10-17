@@ -660,7 +660,7 @@ textarea { font: inherit; color: var(--fg); background: var(--bg); border: 1px s
 <form class="plain" id="eventForm" autocomplete="off">
       <div class="row">
         <label><span class="label">Type</span><select id="evKind"><option value="bill">Bill due</option><option value="rent">Rent</option><option value="pay">Payday</option></select></label>
-        <label><span class="label">Name</span><input id="evName" maxlength="40" placeholder="Phone bill" required></label>
+        <label id="evNameField"><span class="label">Bill name</span><input id="evName" maxlength="40" placeholder="Phone bill"></label>
       </div>
       <div class="row">
         <label><span class="label">Amount</span><input id="evAmount" inputmode="decimal" placeholder="65.00" required></label>
@@ -1048,16 +1048,26 @@ function renderCal() {
     };
     makeEditable(li.querySelector('.what span'), ev.name, () => openEditor(li, [
       { key: 'kind', label: 'Type', type: 'select', value: ev.kind === 'pay' ? 'pay' : ev.cat === 'Rent' ? 'rent' : 'bill', options: [['bill', 'Bill due'], ['rent', 'Rent'], ['pay', 'Payday']] },
-      { key: 'name', label: 'Name', type: 'text', value: ev.name, required: true },
+      { key: 'name', label: 'Bill name', type: 'text', value: ev.kind === 'bill' && !ev.cat ? ev.name : '' },
       { key: 'cents', label: 'Amount', type: 'money', value: ev.cents, required: true },
       { key: 'date', label: 'First date', type: 'date', value: ev.date, required: true },
       { key: 'repeat', label: 'Repeats', type: 'select', value: ev.repeat, options: [['none', 'Just once'], ['weekly', 'Every week'], ['biweekly', 'Every 2 weeks'], ['monthly', 'Every month']] },
     ], async v => {
-      const { kind: type, ...rest } = v, next = { ...ev, ...rest, kind: type === 'pay' ? 'pay' : 'bill' };
+      const { kind: type, ...rest } = v;
+      rest.name = eventName(type, v.name);
+      if (!rest.name) return 'Name the bill, like "Phone" or "Car insurance".';
+      const next = { ...ev, ...rest, kind: type === 'pay' ? 'pay' : 'bill' };
       if (type === 'rent') next.cat = 'Rent'; else delete next.cat;
       await saveEvents(events.map(e => e.id === ev.id ? next : e));
     },
     { onCancel: renderCal, onDelete: () => saveEvents(events.filter(e => e.id !== ev.id)) }));
+    // When the editor opens (tap, or Enter/Space), hide its name box unless the type is Bill due.
+    const syncName = () => {
+      const f = li.querySelector('.editform'); if (!f || f.dataset.synced) return;
+      const sync = () => { f.elements.name.closest('label').hidden = f.elements.kind.value !== 'bill'; };
+      f.dataset.synced = '1'; f.elements.kind.addEventListener('change', sync); sync();
+    };
+    for (const t of ['click', 'keydown']) li.querySelector('.what span').addEventListener(t, syncName);
     list.append(li);
   }
   return { pay, bill };
@@ -2445,16 +2455,17 @@ $('#habitForm').addEventListener('submit', async e => {
   if (await saveHabits(next, el)) { $('#habitName').value = ''; status(`Added ${name}.`, false, el); }
 });
 
+// Paydays and rent name themselves; only bills need a name.
+const eventName = (type, typed) => type === 'pay' ? 'Payday' : type === 'rent' ? 'Rent' : typed;
 $('#evKind').onchange = () => {
-  const name = $('#evName'), rent = $('#evKind').value === 'rent';
-  if (rent && !name.value.trim()) name.value = 'Rent';
-  if (!rent && name.value === 'Rent') name.value = '';
-  if (rent) $('#evRepeat').value = 'monthly';
+  const type = $('#evKind').value;
+  $('#evNameField').hidden = type !== 'bill';
+  if (type === 'rent') $('#evRepeat').value = 'monthly';
 };
 $('#eventForm').addEventListener('submit', async ev => {
   ev.preventDefault();
-  const el = $('#evStatus'), cents = toCents($('#evAmount').value), name = $('#evName').value.trim();
-  if (!name) return status('Give it a name, like "Paycheck" or "Rent".', true, el);
+  const el = $('#evStatus'), cents = toCents($('#evAmount').value), name = eventName($('#evKind').value, $('#evName').value.trim());
+  if (!name) return status('Name the bill, like "Phone" or "Car insurance".', true, el);
   if (!cents) return status('Enter an amount like 65.00.', true, el);
   if (!calRef) return status('Sign in to save.', true, el);
   // Rent is stored as a bill with cat: 'Rent', so it gets every bill feature (alerts, Paid, calendar export).
