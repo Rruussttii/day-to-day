@@ -389,6 +389,58 @@ textarea { font: inherit; color: var(--fg); background: var(--bg); border: 1px s
       <div class="status" id="foodStatus" role="status"></div>
     </form>
 
+    <section class="card" id="hhSetup" aria-label="Share with a roommate" hidden>
+      <h2>Share with a roommate</h2>
+      <p class="muted" style="margin:0">Share a shopping list and vote on recipes together. Everything else in your app stays private.</p>
+      <label><span class="label">Your name (shown to your roommate)</span><input id="hhName" maxlength="20" placeholder="Russ"></label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button type="button" class="primary" id="hhCreate">Create a household</button>
+      </div>
+      <div class="row">
+        <label><span class="label">Or join with an invite code</span><input id="hhCode" maxlength="20" placeholder="K7QD-M2XP-9HTA" autocapitalize="characters" autocomplete="off"></label>
+        <div style="display:flex;align-items:end"><button type="button" id="hhJoin">Join</button></div>
+      </div>
+      <div class="status" id="hhStatus" role="status"></div>
+    </section>
+
+    <section class="card" id="sharedShop" aria-label="Shared shopping list" hidden>
+      <div class="env-top">
+        <h2 id="sharedTitle">Shared shopping list</h2>
+        <span class="muted" style="font-size:0.85rem" id="hhMembers"></span>
+      </div>
+      <ul class="ledger" id="sharedList"></ul>
+      <form class="plain" id="sharedForm" autocomplete="off">
+        <div class="row">
+          <label><span class="label">Item</span><input id="sharedName" maxlength="40" placeholder="Paper towels" required></label>
+          <label><span class="label">How much (optional)</span><input id="sharedQty" maxlength="20" placeholder="2"></label>
+        </div>
+        <button class="primary" type="submit">Add to shared list</button>
+      </form>
+      <div class="status" id="sharedStatus" role="status"></div>
+      <details class="addbox"><summary>Household settings</summary>
+        <div style="display:grid;gap:10px">
+          <p style="margin:0">Invite code: <b class="num" id="hhCodeShow"></b> <button type="button" class="small-btn" id="hhCopy">Copy</button></p>
+          <p class="muted" style="margin:0;font-size:0.85rem">Your roommate enters this under Food → Share with a roommate → Join.</p>
+          <button type="button" class="del" id="hhLeave" style="justify-self:start">Leave household</button>
+        </div>
+      </details>
+    </section>
+
+    <section class="card" id="voteBox" aria-label="Recipe vote" hidden>
+      <div class="env-top">
+        <h2>What should we cook?</h2>
+        <input type="date" id="voteDate" style="width:auto;padding:5px 8px" aria-label="Day to vote on">
+      </div>
+      <p class="muted" style="margin:0;font-size:0.85rem">Add a few options, then each of you taps one. Change your vote any time.</p>
+      <ul class="ledger" id="voteList"></ul>
+      <div class="row">
+        <label><span class="label">Add an option</span><input id="voteOption" list="recipeNames" maxlength="60" placeholder="Pick a saved recipe or type one"></label>
+        <div style="display:flex;align-items:end"><button type="button" id="voteAdd">Add option</button></div>
+      </div>
+      <button type="button" class="primary" id="votePlan" hidden></button>
+      <div class="status" id="voteStatus" role="status"></div>
+    </section>
+
     <section class="card" aria-label="Weekly meal plan">
       <div class="env-top">
         <h2>This week's meals</h2>
@@ -2182,6 +2234,189 @@ $('#recipeForm').addEventListener('submit', async e => {
 
 // Import the JSON file exported from the old Claude version. Docs keep their paths; expenses and tips are added.
 let fdb = null, fuid = null;
+
+// ---- Household: a shared shopping list and recipe votes with a roommate ----
+// The household's id is its invite code: 12 characters, no look-alike letters (no I, L, O, 0, 1).
+const HH_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+function newCode() { const a = new Uint32Array(12); crypto.getRandomValues(a); return [...a].map(n => HH_ALPHABET[n % HH_ALPHABET.length]).join(''); }
+const fmtCode = c => c.replace(/(.{4})(?=.)/g, '$1-');
+const cleanCode = s => s.toUpperCase().replace(/[^A-Z0-9]/g, '');
+console.assert(fmtCode('K7QDM2XP9HTA') === 'K7QD-M2XP-9HTA' && cleanCode(' k7qd-m2xp 9hta ') === 'K7QDM2XP9HTA', 'invite code self-check failed');
+
+let hh = null, hhId = null, hhPtr = null, hhUnsubs = [], shared = [], vote = null, voteUnsub = null;
+const FV = () => firebase.firestore.FieldValue;
+const nameOf = u => u === fuid ? 'you' : (hh?.names?.[u] || 'your roommate');
+function hhStop() {
+  hhUnsubs.forEach(u => u()); hhUnsubs = [];
+  if (voteUnsub) voteUnsub(); voteUnsub = null;
+  hh = null; hhId = null; shared = []; vote = null;
+}
+function startHousehold(db, uid) {
+  hhPtr = db.doc(`data/users/${uid}/household`);   // which household I'm in: {id}
+  hhPtr.onSnapshot(s => {
+    const id = s.exists ? s.data().id : null;
+    if (id === hhId && (id || !$('#hhSetup').hidden)) return;
+    hhStop(); hhId = id; renderHousehold();
+    if (!id) return;
+    const ref = db.doc(`households/${id}`);
+    hhUnsubs.push(ref.onSnapshot(d => { hh = d.exists && (d.data().members || []).includes(uid) ? d.data() : null; renderHousehold(); }, () => { hh = null; renderHousehold(); }));
+    hhUnsubs.push(ref.collection('shopping').orderBy('created').onSnapshot(q => { shared = q.docs.map(d => ({ id: d.id, ...d.data() })); renderShared(); }, () => {}));
+    watchVote();
+  }, () => {});
+}
+function renderHousehold() {
+  const inHH = !!(hhId && hh);
+  $('#hhSetup').hidden = !fuid || inHH;
+  $('#sharedShop').hidden = !inHH; $('#voteBox').hidden = !inHH;
+  if (!inHH) return;
+  $('#hhMembers').textContent = hh.members.map(u => u === fuid ? 'You' : (hh.names?.[u] || 'Roommate')).join(' & ');
+  $('#hhCodeShow').textContent = fmtCode(hhId);
+  renderShared(); renderVote();
+}
+
+$('#hhCreate').onclick = async () => {
+  const el = $('#hhStatus'), name = $('#hhName').value.trim();
+  if (!name) return status('Type your name first.', true, el);
+  const id = newCode();
+  try {
+    await fdb.doc(`households/${id}`).set({ members: [fuid], names: { [fuid]: name }, created: Date.now() });
+    await hhPtr.set({ id });
+    status('', false, el);
+  } catch { status('Could not create the household. Make sure the new Firebase rules are published.', true, el); }
+};
+$('#hhJoin').onclick = async () => {
+  const el = $('#hhStatus'), name = $('#hhName').value.trim(), id = cleanCode($('#hhCode').value);
+  if (!name) return status('Type your name first.', true, el);
+  if (id.length !== 12) return status('Invite codes are 12 letters and numbers, like K7QD-M2XP-9HTA.', true, el);
+  try {
+    const ref = fdb.doc(`households/${id}`), s = await ref.get();
+    if (!s.exists) return status('No household with that code. Check it and try again.', true, el);
+    const d = s.data();
+    if (!d.members.includes(fuid)) {
+      if (d.members.length >= 6) return status('That household is full.', true, el);
+      await ref.update({ members: FV().arrayUnion(fuid), [`names.${fuid}`]: name });
+    }
+    await hhPtr.set({ id });
+    $('#hhCode').value = ''; status('', false, el);
+  } catch { status('Could not join. Check the code, and that the new Firebase rules are published.', true, el); }
+};
+$('#hhCopy').onclick = async () => {
+  try { await navigator.clipboard.writeText(fmtCode(hhId)); status('Invite code copied.', false, $('#sharedStatus')); }
+  catch { status(`Your invite code is ${fmtCode(hhId)}`, false, $('#sharedStatus')); }
+};
+$('#hhLeave').onclick = async () => {
+  const b = $('#hhLeave');
+  if (!b.dataset.armed) { b.dataset.armed = '1'; b.textContent = 'Tap again to leave'; setTimeout(() => { delete b.dataset.armed; b.textContent = 'Leave household'; }, 3000); return; }
+  try {
+    if (hh) await fdb.doc(`households/${hhId}`).update({ members: FV().arrayRemove(fuid) });
+    await hhPtr.delete();
+  } catch { status('Could not leave. Try again.', true, $('#sharedStatus')); }
+};
+
+// Shared shopping list: one document per item, so you can both edit at once without overwriting each other.
+function renderShared() {
+  const ul = $('#sharedList'); ul.replaceChildren();
+  $('#sharedTitle').textContent = `Shared shopping list (${shared.length})`;
+  if (!shared.length) { const li = document.createElement('li'); li.className = 'muted'; li.style.display = 'block'; li.textContent = 'Nothing on the shared list.'; ul.append(li); }
+  for (const it of shared) {
+    const li = document.createElement('li'); li.className = 'food';
+    li.innerHTML = '<span class="muted num"></span><span class="what"><span></span><small></small></span><button type="button" class="small-btn">Got it</button><button class="del" type="button">✕</button>';
+    li.children[0].textContent = it.qty || '';
+    li.querySelector('.what span').textContent = it.name;
+    li.querySelector('.what small').textContent = `Added by ${nameOf(it.by)}`;
+    const [, , got, del] = li.children;
+    got.setAttribute('aria-label', `Got ${it.name}, move to my Already have`);
+    del.setAttribute('aria-label', `Remove ${it.name} from the shared list`);
+    got.onclick = async () => {
+      try {
+        await fdb.doc(`households/${hhId}/shopping/${it.id}`).delete();
+        const hit = food.find(f => sameName(f.name, it.name));
+        await saveFood(hit ? food.map(f => f === hit ? { ...f, status: 'have', qty: it.qty || f.qty || '', expires: '' } : f)
+          : [...food, { id: newId(), name: it.name, qty: it.qty || '', expires: '', status: 'have' }], $('#sharedStatus'));
+        status(`Got ${it.name}. It's in your Already have.`, false, $('#sharedStatus'));
+      } catch { status('Could not update the shared list. Try again.', true, $('#sharedStatus')); }
+    };
+    del.onclick = () => fdb.doc(`households/${hhId}/shopping/${it.id}`).delete().catch(() => status('Could not remove that. Try again.', true, $('#sharedStatus')));
+    ul.append(li);
+  }
+}
+$('#sharedForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const el = $('#sharedStatus'), name = $('#sharedName').value.trim(), qty = $('#sharedQty').value.trim();
+  if (!name) return status('Type an item.', true, el);
+  if (shared.some(s => sameName(s.name, name))) return status(`${name} is already on the shared list.`, true, el);
+  try {
+    await fdb.collection(`households/${hhId}/shopping`).add({ name, qty, by: fuid, created: Date.now() });
+    $('#sharedName').value = ''; $('#sharedQty').value = ''; $('#sharedName').focus();
+    status(`Added ${name}.`, false, el);
+  } catch { status('Could not add that. Try again.', true, el); }
+});
+
+// Recipe vote: one document per day, {options: [{id, name, recipeId?}], votes: {uid: optionId}}. One vote each.
+$('#voteDate').value = today();
+const voteRef = () => fdb.doc(`households/${hhId}/votes/${$('#voteDate').value || today()}`);
+function watchVote() {
+  if (voteUnsub) voteUnsub();
+  vote = null; renderVote();
+  if (!hhId) return;
+  voteUnsub = voteRef().onSnapshot(s => { vote = s.exists ? s.data() : null; renderVote(); }, () => {});
+}
+$('#voteDate').onchange = watchVote;
+function voteLeader(opts, votes) {
+  const count = id => Object.values(votes).filter(v => v === id).length;
+  const ranked = [...opts].sort((a, b) => count(b.id) - count(a.id));
+  return ranked[0] && count(ranked[0].id) > 0 && (ranked.length === 1 || count(ranked[0].id) > count(ranked[1].id)) ? ranked[0] : null;
+}
+console.assert(voteLeader([{ id: 'a' }, { id: 'b' }], { u1: 'b', u2: 'b' })?.id === 'b' && voteLeader([{ id: 'a' }, { id: 'b' }], { u1: 'a', u2: 'b' }) === null
+  && voteLeader([{ id: 'a' }], {}) === null, 'voteLeader self-check failed');
+function renderVote() {
+  const ul = $('#voteList'); ul.replaceChildren();
+  const opts = vote?.options || [], votes = vote?.votes || {}, top = voteLeader(opts, votes);
+  const day = $('#voteDate').value || today();
+  if (!opts.length) { const li = document.createElement('li'); li.className = 'muted'; li.style.display = 'block'; li.textContent = `No options for ${day === today() ? 'today' : shortDate(day)} yet. Add one below.`; ul.append(li); }
+  for (const o of opts) {
+    const who = Object.entries(votes).filter(([, v]) => v === o.id).map(([u]) => nameOf(u)), mine = votes[fuid] === o.id;
+    const li = document.createElement('li'); li.className = 'food';
+    li.innerHTML = '<span></span><span class="what"><span></span><small></small></span><button type="button" class="small-btn"></button><button class="del" type="button">✕</button>';
+    if (o === top) { const p = document.createElement('span'); p.className = 'pill done'; p.textContent = 'Top pick'; li.children[0].append(p); }
+    li.querySelector('.what span').textContent = o.name;
+    li.querySelector('.what small').textContent = who.length ? `${who.length} vote${who.length > 1 ? 's' : ''}: ${who.join(', ')}` : 'No votes yet';
+    const [, , btn, del] = li.children;
+    btn.textContent = mine ? 'Your vote' : 'Vote'; if (mine) btn.classList.add('primary');
+    btn.setAttribute('aria-label', mine ? `You voted for ${o.name}` : `Vote for ${o.name}`);
+    btn.onclick = () => voteRef().set({ votes: { [fuid]: o.id } }, { merge: true }).catch(() => status('Could not save your vote. Try again.', true, $('#voteStatus')));
+    del.setAttribute('aria-label', `Remove option ${o.name}`);
+    del.onclick = () => {
+      const patch = { options: FV().arrayRemove(o) };
+      for (const [u, v] of Object.entries(votes)) if (v === o.id) patch[`votes.${u}`] = FV().delete();
+      voteRef().update(patch).catch(() => status('Could not remove that. Try again.', true, $('#voteStatus')));
+    };
+    ul.append(li);
+  }
+  const plan = $('#votePlan');
+  plan.hidden = !top;
+  if (top) plan.textContent = `Add ${top.name} to my dinner ${day === today() ? "tonight" : "on " + shortDate(day)}`;
+}
+$('#voteAdd').onclick = async () => {
+  const el = $('#voteStatus'), name = $('#voteOption').value.trim();
+  if (!name) return status('Type a recipe or pick one of your saved recipes.', true, el);
+  if ((vote?.options || []).some(o => sameName(o.name, name))) return status(`${name} is already an option.`, true, el);
+  const r = kitchen.recipes.find(x => sameName(x.name, name));
+  try {
+    await voteRef().set({ options: FV().arrayUnion({ id: newId(), name: r ? r.name : name, ...(r ? { recipeId: r.id } : {}) }) }, { merge: true });
+    $('#voteOption').value = ''; status('', false, el);
+  } catch { status('Could not add that option. Try again.', true, el); }
+};
+$('#votePlan').onclick = async () => {
+  const el = $('#voteStatus'), top = voteLeader(vote?.options || [], vote?.votes || {}), d = $('#voteDate').value || today();
+  if (!top) return;
+  const r = kitchen.recipes.find(x => x.id === top.recipeId) || kitchen.recipes.find(x => sameName(x.name, top.name));
+  const entry = r ? { name: r.name, recipeId: r.id } : { name: top.name };
+  if (!(await saveKitchen({ plan: { ...kitchen.plan, [d]: { ...(kitchen.plan[d] || {}), dinner: entry } } }, el))) return;
+  const missing = r ? [...toRecipe(r).uses, ...toRecipe(r).buy].filter(n => !food.some(f => f.status === 'have' && sameName(f.name, n))) : [];
+  const n = missing.length ? await addToShopping(missing, el) : 0;
+  status(`${top.name} is on your dinner plan${n ? `, and ${n} missing item${n > 1 ? 's are' : ' is'} on your shopping list` : ''}.`, false, el);
+};
 $('#importFile').onchange = async () => {
   const file = $('#importFile').files[0], el = $('#backupStatus');
   $('#importFile').value = '';
@@ -2245,7 +2480,7 @@ $('#importFile').onchange = async () => {
   auth.onAuthStateChanged(u => {
     document.body.classList.toggle('signed-out', !u);
     $('#authPane').hidden = !!u;
-    if (u && !started) { started = true; fuid = u.uid; $('#whoami').textContent = `Signed in as ${u.email}`; startData(fdb, u.uid); }
+    if (u && !started) { started = true; fuid = u.uid; $('#whoami').textContent = `Signed in as ${u.email}`; startData(fdb, u.uid); startHousehold(fdb, u.uid); }
     if (!u && started) location.reload(); // drop the previous person's data from the screen
   });
   const net = () => { $('#notice').hidden = navigator.onLine; };
