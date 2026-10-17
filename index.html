@@ -356,6 +356,28 @@ textarea { font: inherit; color: var(--fg); background: var(--bg); border: 1px s
       <ul class="tlist" id="catTrends"></ul>
     </section>
 
+    <section class="card" id="debtIns" aria-label="Debt progress" hidden>
+      <h2>Debt progress</h2>
+      <div><span class="big-stat num" id="debtNow">—</span> <span class="muted" id="debtNote"></span></div>
+      <p class="muted" style="margin:0;font-size:0.85rem">Total you owe at the end of each month.</p>
+      <div class="chart" id="chartDebt"></div>
+      <ul class="tlist" id="debtLines"></ul>
+    </section>
+
+    <section class="card" id="tipsIns" aria-label="Tips" hidden>
+      <h2>Tips</h2>
+      <div><span class="big-stat num" id="tipsNow">—</span> <span class="muted" id="tipsNote"></span></div>
+      <div class="chart" id="chartTips"></div>
+      <ul class="tlist" id="tipsLines"></ul>
+    </section>
+
+    <section class="card" id="foodIns" aria-label="Food" hidden>
+      <h2>Food</h2>
+      <p class="muted" style="margin:0;font-size:0.85rem" id="kcalChartNote">Average calories per day you logged food.</p>
+      <div class="chart" id="chartKcal"></div>
+      <ul class="tlist" id="foodLines"></ul>
+    </section>
+
     <details class="card" id="insTable">
       <summary>Show the numbers</summary>
       <div style="overflow-x:auto"><table class="ins-table" id="insRows"></table></div>
@@ -1653,7 +1675,12 @@ function barChart(host, labels, series, { fmtTick, onPick, selected, labelLast }
   host.replaceChildren(svg);
 }
 
-let insData = null, insPick = null;
+let insData = null, insPick = null, insRaw = { exps: [], tips: [] };
+// Only months where something was actually logged (expenses or tips), plus the current month.
+// Repeating paydays reach back to their start date, so income alone doesn't count as a real month.
+const keepLoggedMonths = stats => stats.filter((s, i) => s.hasData || i === stats.length - 1);
+console.assert(keepLoggedMonths([{ hasData: false, inn: 5 }, { hasData: true }, { hasData: false, inn: 5 }, { hasData: false }]).length === 2,
+  'keepLoggedMonths self-check failed');
 async function loadInsights() {
   if (!expCol) { $('#insStatus').textContent = 'Sign in to see your insights.'; return; }
   const cur = today().slice(0, 7), months = monthsBack(cur, 12);
@@ -1661,8 +1688,8 @@ async function loadInsights() {
   try {
     const [ex, tp] = await Promise.all([expCol.where('month', '>=', months[0]).get(), tipCol.where('month', '>=', months[0]).get()]);
     const stats = insightStats(months, ex.docs.map(d => d.data()), tp.docs.map(d => d.data()), events, categories);
-    const first = stats.findIndex(s => s.hasData || s.inn > 0);
-    insData = first < 0 ? [stats[stats.length - 1]] : stats.slice(first);
+    insRaw = { exps: ex.docs.map(d => d.data()), tips: tp.docs.map(d => d.data()) };
+    insData = keepLoggedMonths(stats);
     $('#insStatus').textContent = '';
     renderInsights();
   } catch { $('#insStatus').textContent = 'Could not load your history. Check your connection and open Insights again.'; }
@@ -1731,6 +1758,8 @@ function renderInsights() {
     trends.append(...tlist(rows.length ? rows.slice(0, 6).map(r => r.slice(0, 3)) : [['Your spending held steady last month. No big changes.', '']]).children);
   }
 
+  renderDebtIns(st); renderTipsIns(st); renderFoodIns(st);
+
   // Table view of everything above
   const t = $('#insRows');
   t.innerHTML = '<thead><tr><th>Month</th><th>In</th><th>Out</th><th>Kept</th><th>Saved</th><th>Health</th></tr></thead><tbody></tbody>';
@@ -1741,6 +1770,83 @@ function renderInsights() {
     }
     t.tBodies[0].append(tr);
   }
+}
+
+// Debt owed at the end of month m: today's balance plus every payment logged after that month.
+function debtAtEnd(list, m) {
+  return list.reduce((a, d) => a + d.balance + (d.log || []).filter(x => x.date.slice(0, 7) > m).reduce((b, x) => b + x.cents, 0), 0);
+}
+console.assert(debtAtEnd([{ balance: 1000, log: [{ date: '2026-09-10', cents: 200 }, { date: '2026-10-02', cents: 300 }] }], '2026-08') === 1500
+  && debtAtEnd([{ balance: 1000, log: [{ date: '2026-09-10', cents: 200 }, { date: '2026-10-02', cents: 300 }] }], '2026-09') === 1300, 'debtAtEnd self-check failed');
+
+function renderDebtIns(st) {
+  const box = $('#debtIns');
+  box.hidden = !debts.length;
+  if (!debts.length) return;
+  const labels = st.map((s, i) => monShort(s.m) + (i === st.length - 1 ? '*' : ''));
+  const owed = st.map(s => debtAtEnd(debts, s.m));
+  barChart($('#chartDebt'), labels, [{ cls: 'bar-out', values: owed }], { fmtTick: kfmt, labelLast: true });
+  const now = owed[owed.length - 1], first = owed[0];
+  $('#debtNow').textContent = fmt(now);
+  $('#debtNote').textContent = st.length > 1 && first !== now ? `${first > now ? 'down' : 'up'} ${fmt(Math.abs(first - now))} since ${monShort(st[0].m)}` : 'owed today';
+  const paidBy = m => debts.reduce((a, d) => a + (d.log || []).filter(x => x.date.startsWith(m)).reduce((b, x) => b + x.cents, 0), 0);
+  const cur = st[st.length - 1].m, prev = prevMonthOf(cur);
+  // Same plan as the Money tab: extra money goes to the highest-interest debt.
+  const live = debts.filter(d => d.balance > 0), target = [...live].sort((a, b) => b.apr - a.apr)[0];
+  const months = live.map(d => payoff(d.balance, d.apr, d.payment + (d === target ? debtExtra : 0)).months);
+  const worst = months.length ? Math.max(...months) : 0;
+  $('#debtLines').replaceChildren(...tlist([
+    [`Paid this month`, fmt(paidBy(cur))],
+    [`Paid in ${monShort(prev)}`, fmt(paidBy(prev))],
+    [now <= 0 ? 'You\'re debt-free' : worst === Infinity ? 'A payment doesn\'t cover its interest' : `Debt-free by ${freeDate(worst)}`, now <= 0 || worst === Infinity ? '' : monthsLabel(worst), worst === Infinity ? 'up' : 'down'],
+  ]).children);
+}
+
+function renderTipsIns(st) {
+  const rows = insRaw.tips, box = $('#tipsIns');
+  box.hidden = !rows.length;
+  if (!rows.length) return;
+  const labels = st.map((s, i) => monShort(s.m) + (i === st.length - 1 ? '*' : ''));
+  barChart($('#chartTips'), labels, [{ cls: 'bar-in', values: st.map(s => s.tips) }], { fmtTick: kfmt, labelLast: true });
+  const cur = st[st.length - 1], prev = st[st.length - 2];
+  $('#tipsNow').textContent = fmt(cur.tips);
+  $('#tipsNote').textContent = 'this month so far' + (prev ? ` · ${fmt(prev.tips)} in ${monShort(prev.m)}` : '');
+  const all = tipStats(rows), thisM = tipStats(rows.filter(t => t.month === cur.m)), lastM = prev ? tipStats(rows.filter(t => t.month === prev.m)) : null;
+  const lines = [];
+  if (thisM.hours) lines.push(['Per hour this month', `${fmt(Math.round(thisM.rate))}/hr`, lastM && lastM.hours ? (thisM.rate >= lastM.rate ? 'down' : 'up') : '']);
+  if (lastM && lastM.hours) lines.push([`Per hour in ${monShort(prev.m)}`, `${fmt(Math.round(lastM.rate))}/hr`]);
+  if (all.hours) lines.push(['Average per hour, all shifts', `${fmt(Math.round(all.rate))}/hr`]);
+  if (all.best && all.days > 1) lines.push([`Best day: ${all.best.day}`, `${fmt(Math.round(all.best.rate))}/hr`, 'down']);
+  if (!all.hours) lines.push(['Add hours worked with your tips to see per-hour trends and your best day.', '']);
+  $('#tipsLines').replaceChildren(...tlist(lines).children);
+}
+
+function renderFoodIns(st) {
+  const box = $('#foodIns');
+  const kcalByMonth = st.map(s => {
+    const days = Object.entries(kcal.days).filter(([d, xs]) => d.startsWith(s.m) && xs.length);
+    return days.length ? { avg: Math.round(days.reduce((a, [, xs]) => a + xs.reduce((b, x) => b + x.kcal, 0), 0) / days.length), days: days.length,
+      onTarget: kcal.goal ? days.filter(([, xs]) => xs.reduce((b, x) => b + x.kcal, 0) <= kcal.goal).length : null } : null;
+  });
+  const groc = st.map(s => s.byCat.Groceries || 0);
+  const trips = st.map(s => insRaw.exps.filter(e => e.month === s.m && e.category === 'Groceries').length);
+  const hasKcal = kcalByMonth.some(Boolean), hasGroc = groc.some(v => v > 0);
+  const expired = food.filter(f => f.status === 'have' && f.expires && f.expires < today());
+  box.hidden = !hasKcal && !hasGroc && !expired.length;
+  if (box.hidden) return;
+  const labels = st.map((s, i) => monShort(s.m) + (i === st.length - 1 ? '*' : ''));
+  $('#kcalChartNote').hidden = !hasKcal;
+  if (hasKcal) barChart($('#chartKcal'), labels, [{ cls: 'bar-in', values: kcalByMonth.map(k => k ? k.avg : null) }], { fmtTick: v => Math.round(v).toLocaleString('en-US'), labelLast: true });
+  else $('#chartKcal').replaceChildren();
+  const n = st.length, cur = kcalByMonth[n - 1], lines = [];
+  if (cur && kcal.goal) lines.push([`Days at or under your calorie goal this month`, `${cur.onTarget} of ${cur.days}`, cur.onTarget >= cur.days / 2 ? 'down' : 'up']);
+  if (hasGroc) {
+    lines.push(['Groceries this month', `${fmt(groc[n - 1])} · ${trips[n - 1]} trip${trips[n - 1] === 1 ? '' : 's'}`]);
+    if (n > 1) lines.push([`Groceries in ${monShort(st[n - 2].m)}`, `${fmt(groc[n - 2])} · ${trips[n - 2]} trip${trips[n - 2] === 1 ? '' : 's'}`]);
+  }
+  if (expired.length) lines.push([`Expired in your kitchen: ${expired.map(f => f.name).join(', ')}`, `${expired.length}`, 'up']);
+  else lines.push(['Nothing in your kitchen has expired', '', 'down']);
+  $('#foodLines').replaceChildren(...tlist(lines).children);
 }
 
 // ---- Daily habits with streaks ----
