@@ -430,8 +430,20 @@ textarea { font: inherit; color: var(--fg); background: var(--bg); border: 1px s
       <details class="addbox"><summary>Household settings</summary>
         <div style="display:grid;gap:10px">
           <p style="margin:0">Invite code: <b class="num" id="hhCodeShow"></b> <button type="button" class="small-btn" id="hhCopy">Copy</button></p>
-          <p class="muted" style="margin:0;font-size:0.85rem">Your roommate enters this under Food → Share with a roommate → Join.</p>
+          <p class="muted" style="margin:0;font-size:0.85rem">Your roommate enters this under Home → Share with a roommate → Join.</p>
+          <h3>People</h3>
+          <ul class="tlist" id="hhPeople"></ul>
+          <div id="hhBlockedBox" hidden>
+            <h3>Removed</h3>
+            <p class="muted" style="margin:0;font-size:0.85rem">They can't rejoin with the invite code unless you let them back in.</p>
+            <ul class="tlist" id="hhBlocked"></ul>
+          </div>
           <button type="button" class="del" id="hhLeave" style="justify-self:start">Leave household</button>
+          <div id="hhDangerBox" hidden style="display:grid;gap:8px;border-top:1px solid var(--line);padding-top:10px">
+            <p class="muted" style="margin:0;font-size:0.85rem">Deleting the household erases the shared list, shared costs, bills, chores, notes and votes for everyone. Everyone's own private data stays. Download a backup first if you want a copy.</p>
+            <button type="button" class="del" id="hhDelete" style="justify-self:start">Delete household</button>
+          </div>
+          <div class="status" id="hhSettingsStatus" role="status"></div>
         </div>
       </details>
     </section>
@@ -2673,6 +2685,7 @@ function renderHousehold() {
   if (!inHH) return;
   $('#hhMembers').textContent = hh.members.map(u => u === fuid ? 'You' : (hh.names?.[u] || 'Roommate')).join(' & ');
   $('#hhCodeShow').textContent = fmtCode(hhId);
+  renderPeople();
   renderShared(); renderVote(); renderHome();
 }
 
@@ -2681,7 +2694,7 @@ $('#hhCreate').onclick = async () => {
   if (!name) return status('Type your name first.', true, el);
   const id = newCode();
   try {
-    await fdb.doc(`households/${id}`).set({ members: [fuid], names: { [fuid]: name }, created: Date.now() });
+    await fdb.doc(`households/${id}`).set({ members: [fuid], names: { [fuid]: name }, owner: fuid, created: Date.now() });
     await hhPtr.set({ id });
     status('', false, el);
   } catch { status('Could not create the household. Make sure the new Firebase rules are published.', true, el); }
@@ -2695,6 +2708,7 @@ $('#hhJoin').onclick = async () => {
     if (!s.exists) return status('No household with that code. Check it and try again.', true, el);
     const d = s.data();
     if (!d.members.includes(fuid)) {
+      if ((d.blocked || []).includes(fuid)) return status('You were removed from this household. Ask the owner to let you back in.', true, el);
       if (d.members.length >= 6) return status('That household is full.', true, el);
       await ref.update({ members: FV().arrayUnion(fuid), [`names.${fuid}`]: name });
     }
@@ -2710,9 +2724,74 @@ $('#hhLeave').onclick = async () => {
   const b = $('#hhLeave');
   if (!b.dataset.armed) { b.dataset.armed = '1'; b.textContent = 'Tap again to leave'; setTimeout(() => { delete b.dataset.armed; b.textContent = 'Leave household'; }, 3000); return; }
   try {
-    if (hh) await fdb.doc(`households/${hhId}`).update({ members: FV().arrayRemove(fuid) });
+    const others = hh ? hh.members.filter(m => m !== fuid) : [];
+    if (hh && isHhOwner() && !others.length) { await deleteHousehold(); return; }
+    if (hh) await fdb.doc(`households/${hhId}`).update(isHhOwner()
+      ? { members: FV().arrayRemove(fuid), owner: others[0] }   // the next member becomes the owner
+      : { members: FV().arrayRemove(fuid) });
     await hhPtr.delete();
-  } catch { status('Could not leave. Try again.', true, $('#sharedStatus')); }
+  } catch { status('Could not leave. Try again.', true, $('#hhSettingsStatus')); }
+};
+
+// ---- Household owner: remove people, let them back in, delete the household ----
+const hhOwner = () => hh ? (hh.owner || hh.members[0]) : null;   // older households: the first member is the owner
+const isHhOwner = () => hhOwner() === fuid;
+function renderPeople() {
+  const owner = isHhOwner(), el = $('#hhSettingsStatus');
+  $('#hhPeople').replaceChildren(...hh.members.map(m => {
+    const li = document.createElement('li');
+    li.innerHTML = '<span></span><span></span>';
+    li.firstChild.textContent = (m === fuid ? 'You' : Name(m)) + (m === hhOwner() ? ' (owner)' : '');
+    if (owner && m !== fuid) {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'del'; b.textContent = 'Remove';
+      b.setAttribute('aria-label', `Remove ${Name(m)} from the household`);
+      armDelete(b, `Remove ${Name(m)}?`, async () => {
+        try {
+          // Removed people also go on the blocked list, so the old invite code stops working for them.
+          await fdb.doc(`households/${hhId}`).update({ members: FV().arrayRemove(m), blocked: FV().arrayUnion(m) });
+          status(`Removed ${Name(m)}.`, false, el);
+        } catch { status('Could not remove them. Make sure the newest Firebase rules are published.', true, el); }
+      });
+      b.textContent = 'Remove';
+      li.lastChild.replaceWith(b);
+    }
+    return li;
+  }));
+  const blocked = owner ? (hh.blocked || []) : [];
+  $('#hhBlockedBox').hidden = !blocked.length;
+  $('#hhBlocked').replaceChildren(...blocked.map(m => {
+    const li = document.createElement('li');
+    li.innerHTML = '<span></span><button type="button" class="small-btn">Let back in</button>';
+    li.firstChild.textContent = hh.names?.[m] || 'Former member';
+    li.lastChild.onclick = () => fdb.doc(`households/${hhId}`).update({ blocked: FV().arrayRemove(m) })
+      .then(() => status(`${hh.names?.[m] || 'They'} can join again with the invite code.`, false, el))
+      .catch(() => status('Could not update that. Try again.', true, el));
+    return li;
+  }));
+  $('#hhDangerBox').hidden = !owner;
+}
+// Deletes every shared document, then the household itself. Each person's private data is untouched.
+async function deleteHousehold() {
+  const base = `households/${hhId}`;
+  for (const sub of ['shopping', 'votes', 'expenses', 'bills', 'chores', 'notes']) {
+    const docs = (await fdb.collection(`${base}/${sub}`).get()).docs;
+    for (let i = 0; i < docs.length; i += 400) {
+      const b = fdb.batch(); docs.slice(i, i + 400).forEach(d => b.delete(d.ref)); await b.commit();
+    }
+  }
+  await fdb.doc(base).delete();
+  await hhPtr.delete();
+}
+$('#hhDelete').onclick = async () => {
+  const b = $('#hhDelete'), el = $('#hhSettingsStatus');
+  if (!b.dataset.armed) {
+    b.dataset.armed = '1'; b.textContent = 'Tap again to delete for everyone';
+    setTimeout(() => { delete b.dataset.armed; b.textContent = 'Delete household'; }, 4000); return;
+  }
+  b.disabled = true; status('Deleting…', false, el);
+  try { await deleteHousehold(); }
+  catch { status('Could not finish deleting. Make sure the newest Firebase rules are published, then try again.', true, el); }
+  finally { b.disabled = false; }
 };
 
 // Shared shopping list: one document per item, so you can both edit at once without overwriting each other.
@@ -2893,8 +2972,9 @@ function fillMemberSelect(sel, firstIsMe) {
   if ([...sel.options].some(o => o.value === prev)) sel.value = prev;
 }
 function armDelete(btn, label, action) {
+  const orig = btn.textContent;   // put the original label back if the second tap never comes
   btn.onclick = () => {
-    if (!btn.dataset.armed) { btn.dataset.armed = '1'; btn.textContent = label; setTimeout(() => { delete btn.dataset.armed; btn.textContent = '✕'; }, 3000); return; }
+    if (!btn.dataset.armed) { btn.dataset.armed = '1'; btn.textContent = label; setTimeout(() => { delete btn.dataset.armed; btn.textContent = orig; }, 3000); return; }
     action();
   };
 }

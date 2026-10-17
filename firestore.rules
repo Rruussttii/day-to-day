@@ -7,19 +7,32 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == uid;
     }
 
-    // Households: a small shared space (shared shopping list, recipe votes).
-    // The household id is the invite code; knowing it is what lets someone join.
+    // Households: a small shared space (shared list, costs, bills, chores, notes, recipe votes).
+    // The household id is the invite code. The creator is the owner (older households: the first member).
     match /households/{hid} {
       function signedIn() { return request.auth != null; }
+      function ownerOf(d) { return d.get('owner', d.members[0]); }
       function isMember() { return signedIn() && request.auth.uid in resource.data.members; }
+      function isOwner() { return signedIn() && request.auth.uid == ownerOf(resource.data); }
+      function onlyMembersOrNames() { return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members', 'names']); }
+
       allow get: if signedIn();
-      allow create: if signedIn() && request.resource.data.members == [request.auth.uid];
-      allow update: if isMember() || (
-        signedIn()
-        && resource.data.members.size() < 6
-        && request.resource.data.members == resource.data.members.concat([request.auth.uid])
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members', 'names']));
-      allow delete: if false;
+      allow create: if signedIn()
+        && request.resource.data.members == [request.auth.uid]
+        && request.resource.data.get('owner', request.auth.uid) == request.auth.uid;
+      allow update: if
+        // The owner can remove people, block or unblock them, and hand ownership to another member.
+        (isOwner() && ownerOf(request.resource.data) in request.resource.data.members)
+        // Any other member can only leave (remove themselves) or update names.
+        || (isMember() && onlyMembersOrNames()
+            && (request.resource.data.members == resource.data.members
+                || request.resource.data.members == resource.data.members.removeAll([request.auth.uid])))
+        // Joining with the invite code: add only yourself, unless the owner removed you.
+        || (signedIn() && onlyMembersOrNames()
+            && !(request.auth.uid in resource.data.get('blocked', []))
+            && resource.data.members.size() < 6
+            && request.resource.data.members == resource.data.members.concat([request.auth.uid]));
+      allow delete: if isOwner();
 
       match /{document=**} {
         allow read, write: if signedIn()
