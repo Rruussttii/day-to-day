@@ -1,6 +1,6 @@
 // Offline support: keep the app's own files and its libraries on the device.
 // Bump VERSION whenever you publish a change so phones pick up the new files.
-const VERSION = 'v23';
+const VERSION = 'v24';
 const SHELL = ['./', 'index.html', 'firebase-config.js', 'manifest.webmanifest', 'icons/icon.svg', 'icons/apple-touch-icon.png'];
 
 self.addEventListener('install', e => {

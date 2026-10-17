@@ -19,18 +19,18 @@
 <style>
 /* Layout: one narrow column, like a stack of cash envelopes — month summary, envelopes, add form, ledger. */
 :root {
-  --bg: #eef1ee; --card: #fbfcfa; --fg: #1d2a24; --muted: #5e6d65; --line: #d3dbd5;
-  --accent: #1f7a54; --accent-fg: #ffffff; --warn: #b7791f; --over: #c0392b; --good: #15803d; --bad: #c0392b; --track: #dde5df; --bill: #a3466f; --bill-ink: #a3466f; --in: #2f6fb3; --out: #c97a22;
+  --bg: #eef1ee; --card: #fbfcfa; --fg: #1d2a24; --muted: #566359; --line: #d3dbd5;
+  --accent: #1f7a54; --accent-fg: #ffffff; --warn: #94600f; --over: #c0392b; --good: #15803d; --bad: #c0392b; --track: #dde5df; --bill: #a3466f; --bill-ink: #a3466f; --in: #2f6fb3; --out: #c97a22;
   --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
   --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   --bg: #121815; --card: #1a221e; --fg: #e4ebe6; --muted: #93a39a; --line: #2c3832;
-  --accent: #4cc38a; --accent-fg: #0d1a13; --warn: #e0a84a; --over: #ef6b5d; --good: #4ade80; --bad: #f87171; --track: #26302b; --bill: #bd5a8c; --bill-ink: #e58fb6; --in: #4a86cc; --out: #c27c35; color-scheme: dark } }
+  --accent: #4cc38a; --accent-fg: #0d1a13; --warn: #e0a84a; --over: #ef6b5d; --good: #4ade80; --bad: #f87171; --track: #26302b; --bill: #bd5a8c; --bill-ink: #e58fb6; --in: #5f97d6; --out: #c27c35; color-scheme: dark } }
 :root[data-theme="dark"] {
   --bg: #121815; --card: #1a221e; --fg: #e4ebe6; --muted: #93a39a; --line: #2c3832;
-  --accent: #4cc38a; --accent-fg: #0d1a13; --warn: #e0a84a; --over: #ef6b5d; --good: #4ade80; --bad: #f87171; --track: #26302b; --bill: #bd5a8c; --bill-ink: #e58fb6; --in: #4a86cc; --out: #c27c35; color-scheme: dark }
+  --accent: #4cc38a; --accent-fg: #0d1a13; --warn: #e0a84a; --over: #ef6b5d; --good: #4ade80; --bad: #f87171; --track: #26302b; --bill: #bd5a8c; --bill-ink: #e58fb6; --in: #5f97d6; --out: #c27c35; color-scheme: dark }
 
 /* Themes (Settings). Each sets the whole look in a light and a dark version; all text pairs meet WCAG AA. */
 :root[data-palette="ocean"] { --bg: #e9eff5; --card: #f9fbfd; --fg: #15212c; --muted: #526375; --line: #cdd8e3; --track: #d9e3ec; --accent: #0e6f8c; --accent-fg: #ffffff; }
@@ -171,7 +171,7 @@ form.plain { background: none; border: 0; padding: 0; }
 .slots { display: grid; gap: 6px; min-width: 0; }
 .slot { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; min-width: 0; }
 .slot .meal-name { overflow-wrap: anywhere; min-width: 0; flex: 1; }
-.slot .label { width: 3.6em; }
+.slot .label { min-width: 4.8em; flex: none; }
 .addslot { padding: 3px 10px; font-size: 0.85rem; color: var(--muted); border-style: dashed; }
 .slot select, .slot input { width: auto; flex: 1; min-width: 8em; padding: 5px 8px; }
 .meal-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
@@ -197,7 +197,7 @@ details.recipe summary { font-family: var(--body); font-weight: 600; }
 .ins-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 8px; }
 .ins-table th { text-align: right; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); padding: 4px 6px; }
 .ins-table td { text-align: right; padding: 5px 6px; border-top: 1px solid var(--line); font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.ins-table th:first-child, .ins-table td:first-child { text-align: left; font-family: var(--body); }
+.ins-table th:first-child, .ins-table td:first-child { text-align: left; font-family: var(--body); position: sticky; left: 0; background: var(--card); }   /* month stays put while the table scrolls sideways */
 .today-grid { display: grid; gap: 12px; }
 .tcard { gap: 8px; }
 .tcard .env-top h3 { font-family: var(--display); font-size: 1rem; }
@@ -375,7 +375,7 @@ textarea { font: inherit; color: var(--fg); background: var(--bg); border: 1px s
 
     <details class="card" id="insTable">
       <summary>Show the numbers</summary>
-      <div style="overflow-x:auto"><table class="ins-table" id="insRows"></table></div>
+      <div style="overflow-x:auto; contain:inline-size"><table class="ins-table" id="insRows"></table></div>
     </details>
   </section>
 
@@ -1933,7 +1933,9 @@ function tlist(rows) {
   const ul = document.createElement('ul'); ul.className = 'tlist';
   for (const [left, right, cls] of rows) {
     const li = document.createElement('li'); li.innerHTML = '<span></span><span class="num"></span>';
-    li.children[0].textContent = left; li.children[1].textContent = right || ''; if (cls) li.children[1].className = 'num ' + cls;
+    // Number font only for amounts; words like "today" or a meal name stay in the body font.
+    li.children[0].textContent = left; li.children[1].textContent = right || '';
+    li.children[1].className = [/^[-+−$\d]/.test(right || '') ? 'num' : '', cls].filter(Boolean).join(' ');
     ul.append(li);
   }
   return ul;
