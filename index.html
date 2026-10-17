@@ -20,17 +20,17 @@
 /* Layout: one narrow column, like a stack of cash envelopes — month summary, envelopes, add form, ledger. */
 :root {
   --bg: #eef1ee; --card: #fbfcfa; --fg: #1d2a24; --muted: #5e6d65; --line: #d3dbd5;
-  --accent: #1f7a54; --accent-fg: #ffffff; --warn: #b7791f; --over: #c0392b; --track: #dde5df; --bill: #a3466f;
+  --accent: #1f7a54; --accent-fg: #ffffff; --warn: #b7791f; --over: #c0392b; --track: #dde5df; --bill: #a3466f; --in: #2f6fb3; --out: #c97a22;
   --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
   --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   --bg: #121815; --card: #1a221e; --fg: #e4ebe6; --muted: #93a39a; --line: #2c3832;
-  --accent: #4cc38a; --accent-fg: #0d1a13; --warn: #e0a84a; --over: #ef6b5d; --track: #26302b; --bill: #e58fb6; color-scheme: dark } }
+  --accent: #4cc38a; --accent-fg: #0d1a13; --warn: #e0a84a; --over: #ef6b5d; --track: #26302b; --bill: #e58fb6; --in: #4a86cc; --out: #c27c35; color-scheme: dark } }
 :root[data-theme="dark"] {
   --bg: #121815; --card: #1a221e; --fg: #e4ebe6; --muted: #93a39a; --line: #2c3832;
-  --accent: #4cc38a; --accent-fg: #0d1a13; --warn: #e0a84a; --over: #ef6b5d; --track: #26302b; --bill: #e58fb6; color-scheme: dark }
+  --accent: #4cc38a; --accent-fg: #0d1a13; --warn: #e0a84a; --over: #ef6b5d; --track: #26302b; --bill: #e58fb6; --in: #4a86cc; --out: #c27c35; color-scheme: dark }
 
 body { background: var(--bg); color: var(--fg); font: 15px/1.5 var(--body); padding: 0 16px; }
 main { max-width: 640px; margin: 0 auto; padding-block: 20px 48px; display: grid; gap: 20px; }
@@ -109,7 +109,7 @@ form.plain { background: none; border: 0; padding: 0; }
 .alert.urgent { border-color: var(--over); color: var(--over); }
 .tabpane { display: grid; gap: 20px; }
 .tabs { display: flex; gap: 4px; background: var(--track); padding: 4px; border-radius: 10px; }
-.tabs button { flex: 1; border: 0; background: transparent; font-weight: 600; color: var(--muted); }
+.tabs button { flex: 1; border: 0; background: transparent; font-weight: 600; color: var(--muted); padding: 8px 2px; font-size: 0.82rem; min-width: 0; }
 .tabs button[aria-pressed="true"] { background: var(--card); color: var(--fg); box-shadow: 0 1px 2px rgb(0 0 0 / 0.12); }
 .ledger li.food { grid-template-columns: auto 1fr auto auto; }
 .small-btn { padding: 4px 10px; font-size: 0.85rem; }
@@ -134,6 +134,22 @@ details.recipe summary { font-family: var(--body); font-weight: 600; }
 .kmeal-head { display: flex; justify-content: space-between; margin-top: 8px; }
 .kmeal-head h3 { font-size: 0.9rem; }
 .ledger li.kcal { grid-template-columns: 1fr auto auto; }
+.sw { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.sw.in { background: var(--in); } .sw.out { background: var(--out); }
+.chart svg { width: 100%; height: auto; display: block; overflow: visible; }
+.chart text { fill: var(--muted); font: 11px var(--body); }
+.chart .grid { stroke: var(--line); stroke-width: 1; }
+.chart .zero { stroke: var(--muted); stroke-width: 1; }
+.chart .hit { fill: transparent; cursor: pointer; }
+.chart .hit:hover, .chart .hit.sel { fill: var(--track); opacity: 0.5; }
+.chart .bar-in { fill: var(--in); } .chart .bar-out { fill: var(--out); }
+.chart text.val { fill: var(--fg); font-weight: 600; }
+.chart-detail { margin: 0; min-height: 1.4em; font-size: 0.9rem; font-variant-numeric: tabular-nums; }
+.big-stat { font-size: 1.8rem; font-family: var(--display); font-weight: 800; }
+.ins-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 8px; }
+.ins-table th { text-align: right; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); padding: 4px 6px; }
+.ins-table td { text-align: right; padding: 5px 6px; border-top: 1px solid var(--line); font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ins-table th:first-child, .ins-table td:first-child { text-align: left; font-family: var(--body); }
 .today-grid { display: grid; gap: 12px; }
 .tcard { gap: 8px; }
 .tcard .env-top h3 { font-family: var(--display); font-size: 1rem; }
@@ -218,6 +234,7 @@ textarea { font: inherit; color: var(--fg); background: var(--bg); border: 1px s
     <button type="button" id="tabFood" aria-pressed="false">Food</button>
     <button type="button" id="tabMeals" aria-pressed="false">Meals</button>
     <button type="button" id="tabHabits" aria-pressed="false">Habits</button>
+    <button type="button" id="tabInsights" aria-pressed="false">Insights</button>
   </nav>
 
   <section class="card auth" id="authPane" aria-label="Sign in">
@@ -305,6 +322,44 @@ textarea { font: inherit; color: var(--fg); background: var(--bg); border: 1px s
   <section class="tabpane" id="todayPane" hidden aria-label="Today">
     <h2 id="todayDate"></h2>
     <div id="todayCards" class="today-grid"></div>
+  </section>
+
+  <section class="tabpane" id="insightsPane" hidden aria-label="Insights">
+    <p class="muted" id="insStatus" style="margin:0"></p>
+
+    <section class="card" aria-label="Money in vs out">
+      <div class="env-top">
+        <h2>Money in vs out</h2>
+        <span class="legend"><span><i class="sw in"></i> In</span><span><i class="sw out"></i> Out</span></span>
+      </div>
+      <p class="muted" style="margin:0;font-size:0.85rem">In = paydays + tips. Out = bills + spending. Tap a month for details.</p>
+      <div class="chart" id="chartFlow"></div>
+      <p class="chart-detail" id="flowDetail"></p>
+    </section>
+
+    <section class="card" aria-label="Savings rate">
+      <h2>Savings rate</h2>
+      <div><span class="big-stat num" id="rateNow">—</span> <span class="muted" id="rateNote"></span></div>
+      <p class="muted" style="margin:0;font-size:0.85rem">The share of what came in that you kept after bills and spending.</p>
+      <div class="chart" id="chartRate"></div>
+    </section>
+
+    <section class="card" aria-label="Budget health">
+      <h2>Budget health</h2>
+      <div><span class="big-stat num" id="healthNow">—</span> <span class="muted" id="healthNote"></span></div>
+      <p class="muted" style="margin:0;font-size:0.85rem">Out of 100: the share of your budgeted categories you kept within budget.</p>
+      <ul class="tlist" id="streaks"></ul>
+    </section>
+
+    <section class="card" aria-label="Category trends">
+      <h2>Category trends</h2>
+      <ul class="tlist" id="catTrends"></ul>
+    </section>
+
+    <details class="card" id="insTable">
+      <summary>Show the numbers</summary>
+      <div style="overflow-x:auto"><table class="ins-table" id="insRows"></table></div>
+    </details>
   </section>
 
   <section class="tabpane" id="habitsPane" hidden aria-label="Habits">
@@ -771,16 +826,17 @@ $('#icsBtn').onclick = async () => {
 // ---- Food: shopping list and what's already in the kitchen ----
 let food = [];        // [{id, name, status: 'need'|'have'}]
 let foodRef = null;
-const TABS = ['today', 'money', 'food', 'meals', 'habits'];
+const TABS = ['today', 'money', 'food', 'meals', 'habits', 'insights'];
 const cap = s => s[0].toUpperCase() + s.slice(1);
 function showTab(name) {
   for (const t of TABS) {
     $(`#${t}Pane`).hidden = t !== name;
     $(`#tab${cap(t)}`).setAttribute('aria-pressed', t === name);
   }
-  $('#monthNav').hidden = name === 'habits' || name === 'meals' || name === 'today';
+  $('#monthNav').hidden = name !== 'money' && name !== 'food';
   if (name === 'habits') renderHabits(); // the day may have rolled over since the last render
   if (name === 'today') renderToday();
+  if (name === 'insights') loadInsights();
   scrollTo(0, 0);
   try { localStorage.setItem('tab', name); } catch {}
 }
@@ -1518,6 +1574,173 @@ function renderToday() {
   fd.append(expiring.length ? tlist(expiring.map(f => { const [cls, words] = expState(f.expires); return [f.name, words, cls === 'over' ? 'up' : '']; }))
     : tline('Nothing in your kitchen expires in the next 3 days.', 'muted'));
   box.append(fd);
+}
+
+// ---- Insights: month-over-month trends ----
+// shortcut: past months are judged against today's category budgets; storing a budget history would make old months exact.
+function monthsBack(m, n) { const out = [m]; while (out.length < n) out.unshift(prevMonthOf(out[0])); return out; }
+function insightStats(months, exps, tipRows, evs, cats) {
+  const capped = cats.filter(c => c.cents > 0);
+  return months.map(m => {
+    let pay = 0, bills = 0;
+    for (const ev of evs) for (const _ of occurrences(ev, m)) { if (ev.kind === 'pay') pay += ev.cents; else bills += ev.cents; }
+    const tipsM = tipRows.filter(t => t.month === m).reduce((a, t) => a + t.cents, 0);
+    const byCat = {};
+    for (const e of exps) if (e.month === m) byCat[e.category] = (byCat[e.category] || 0) + e.cents;
+    const spent = Object.values(byCat).reduce((a, n) => a + n, 0);
+    const inn = pay + tipsM, out = bills + spent;
+    const within = capped.filter(c => (byCat[c.name] || 0) <= c.cents).length;
+    return { m, pay, tips: tipsM, bills, spent, byCat, inn, out, kept: inn - out,
+      rate: inn ? (inn - out) / inn : null, health: capped.length ? Math.round(100 * within / capped.length) : null,
+      hasData: spent > 0 || tipsM > 0 };
+  });
+}
+console.assert((() => {
+  const s = insightStats(['2026-09', '2026-10'],
+    [{ month: '2026-09', category: 'Fun', cents: 5000 }, { month: '2026-09', category: 'Gas', cents: 3000 }, { month: '2026-10', category: 'Fun', cents: 12000 }],
+    [{ month: '2026-10', cents: 10000 }],
+    [{ kind: 'pay', cents: 100000, date: '2026-09-01', repeat: 'monthly' }, { kind: 'bill', cents: 40000, date: '2026-09-05', repeat: 'monthly' }],
+    [{ name: 'Fun', cents: 10000 }, { name: 'Gas', cents: 2000 }, { name: 'Rent', cents: 0 }]);
+  return s[0].inn === 100000 && s[0].out === 48000 && Math.abs(s[0].rate - 0.52) < 1e-9 && s[0].health === 50
+    && s[1].inn === 110000 && s[1].out === 52000 && s[1].health === 50;
+})(), 'insightStats self-check failed');
+
+const monShort = m => new Date(m + '-15T12:00').toLocaleDateString('en-US', { month: 'short' });
+const kfmt = c => { const d = Math.abs(c) / 100, s = c < 0 ? '−' : ''; return d >= 1000 ? `${s}$${(d / 1000).toFixed(d >= 10000 ? 0 : 1)}k` : `${s}$${Math.round(d)}`; };
+function niceMax(v) { if (v <= 0) return 1; const p = 10 ** Math.floor(Math.log10(v)), f = v / p; return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * p; }
+const svgEl = (tag, attrs, text) => { const e = document.createElementNS('http://www.w3.org/2000/svg', tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (text != null) e.textContent = text; return e; };
+// A bar with 4px rounded ends away from the baseline.
+function barPath(x, w, yBase, yEnd) {
+  const r = Math.min(4, w / 2, Math.abs(yBase - yEnd)), up = yEnd < yBase;
+  if (Math.abs(yBase - yEnd) < 0.5) return '';
+  return up
+    ? `M${x},${yBase}V${yEnd + r}Q${x},${yEnd} ${x + r},${yEnd}H${x + w - r}Q${x + w},${yEnd} ${x + w},${yEnd + r}V${yBase}Z`
+    : `M${x},${yBase}V${yEnd - r}Q${x},${yEnd} ${x + r},${yEnd}H${x + w - r}Q${x + w},${yEnd} ${x + w},${yEnd - r}V${yBase}Z`;
+}
+// Bar chart over months. series: [{cls, values}] drawn side by side; values in cents or ratios (fmt formats ticks/labels).
+function barChart(host, labels, series, { fmtTick, onPick, selected, labelLast }) {
+  const W = 340, H = 170, L = 40, R = 6, T = 14, B = 22;
+  const all = series.flatMap(s => s.values).filter(v => v != null);
+  const hi = niceMax(Math.max(0, ...all)), lo = Math.min(0, ...all) < 0 ? -niceMax(-Math.min(...all)) : 0;
+  const y = v => T + (H - T - B) * (hi - v) / (hi - lo);
+  const svg = svgEl('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': 'Bar chart by month' });
+  for (const t of lo < 0 ? [hi, 0, lo] : [hi, hi / 2, 0]) {
+    svg.append(svgEl('line', { x1: L, x2: W - R, y1: y(t), y2: y(t), class: t === 0 ? 'zero' : 'grid' }));
+    svg.append(svgEl('text', { x: L - 6, y: y(t) + 4, 'text-anchor': 'end' }, fmtTick(t)));
+  }
+  const slot = (W - L - R) / labels.length, gap = 2, groupW = Math.min(slot * 0.7, 18 * series.length + gap);
+  const bw = (groupW - gap * (series.length - 1)) / series.length;
+  labels.forEach((lab, i) => {
+    const gx = L + slot * i + (slot - groupW) / 2;
+    if (i === selected) svg.append(svgEl('rect', { x: L + slot * i, y: T - 6, width: slot, height: H - B - T + 6, class: 'hit sel' }));
+    series.forEach((s, j) => {
+      const v = s.values[i];
+      if (v == null) return;
+      const d = barPath(gx + j * (bw + gap), bw, y(0), y(v));
+      if (d) svg.append(svgEl('path', { d, class: typeof s.cls === 'function' ? s.cls(v) : s.cls }));
+    });
+    svg.append(svgEl('text', { x: L + slot * (i + 0.5), y: H - 6, 'text-anchor': 'middle' }, lab));
+    if (labelLast && i === labels.length - 1 && series[0].values[i] != null) {
+      const v = series[0].values[i];
+      svg.append(svgEl('text', { x: L + slot * (i + 0.5), y: v >= 0 ? y(v) - 4 : y(v) + 12, 'text-anchor': 'middle', class: 'val' }, fmtTick(v)));
+    }
+    const hit = svgEl('rect', { x: L + slot * i, y: T - 6, width: slot, height: H - B - T + 6, class: 'hit', tabindex: 0 });
+    hit.append(svgEl('title', {}, lab));
+    hit.addEventListener('click', () => onPick && onPick(i));
+    hit.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPick && onPick(i); } });
+    svg.append(hit);
+  });
+  host.replaceChildren(svg);
+}
+
+let insData = null, insPick = null;
+async function loadInsights() {
+  if (!expCol) { $('#insStatus').textContent = 'Sign in to see your insights.'; return; }
+  const cur = today().slice(0, 7), months = monthsBack(cur, 12);
+  if (!insData) $('#insStatus').textContent = 'Crunching your numbers…';
+  try {
+    const [ex, tp] = await Promise.all([expCol.where('month', '>=', months[0]).get(), tipCol.where('month', '>=', months[0]).get()]);
+    const stats = insightStats(months, ex.docs.map(d => d.data()), tp.docs.map(d => d.data()), events, categories);
+    const first = stats.findIndex(s => s.hasData || s.inn > 0);
+    insData = first < 0 ? [stats[stats.length - 1]] : stats.slice(first);
+    $('#insStatus').textContent = '';
+    renderInsights();
+  } catch { $('#insStatus').textContent = 'Could not load your history. Check your connection and open Insights again.'; }
+}
+function renderInsights() {
+  const st = insData, n = st.length, cur = st[n - 1], done = st.slice(0, -1); // the current month is still in progress
+  const labels = st.map((s, i) => monShort(s.m) + (i === n - 1 ? '*' : ''));
+  if (insPick == null || insPick >= n) insPick = n - 1;
+  const pct = r => r == null ? '—' : `${Math.round(r * 100)}%`;
+
+  // 1. Money in vs out
+  const pickFlow = i => {
+    insPick = i; const s = st[i];
+    $('#flowDetail').textContent = `${monthName(s.m)}${i === n - 1 ? ' (so far)' : ''}: in ${fmt(s.inn)} · out ${fmt(s.out)} · ${s.kept >= 0 ? 'kept' : 'short'} ${fmt(Math.abs(s.kept))}`;
+    barChart($('#chartFlow'), labels, [{ cls: 'bar-in', values: st.map(s => s.inn) }, { cls: 'bar-out', values: st.map(s => s.out) }], { fmtTick: kfmt, onPick: pickFlow, selected: i });
+  };
+  pickFlow(insPick);
+
+  // 2. Savings rate
+  const rates = st.map(s => s.rate);
+  barChart($('#chartRate'), labels, [{ cls: v => v < 0 ? 'bar-out' : 'bar-in', values: rates }],
+    { fmtTick: v => `${Math.round(v * 100)}%`, labelLast: true });
+  const lastDone = done[done.length - 1];
+  $('#rateNow').textContent = pct(cur.rate);
+  $('#rateNote').textContent = cur.rate == null ? 'add paydays or tips to see it' :
+    `this month so far` + (lastDone && lastDone.rate != null ? ` · ${pct(lastDone.rate)} in ${monShort(lastDone.m)}` : '');
+
+  // 4. Budget health and streaks
+  const capped = categories.filter(c => c.cents > 0);
+  const hDone = lastDone ? lastDone.health : null;
+  $('#healthNow').textContent = hDone == null ? (cur.health == null ? '—' : cur.health) : hDone;
+  const prevDone = done[done.length - 2];
+  $('#healthNote').textContent = !capped.length ? 'set budgets on your categories to see this'
+    : hDone == null ? 'this month so far'
+    : `in ${monShort(lastDone.m)}` + (prevDone && prevDone.health != null ? ` (${hDone - prevDone.health >= 0 ? 'up' : 'down'} ${Math.abs(hDone - prevDone.health)} from ${monShort(prevDone.m)})` : '') + ` · ${cur.health} so far this month`;
+  const streakRows = [];
+  for (const c of capped) {
+    let under = 0, over = 0;
+    for (let i = done.length - 1; i >= 0 && (done[i].byCat[c.name] || 0) <= c.cents; i--) under++;
+    for (let i = done.length - 1; i >= 0 && (done[i].byCat[c.name] || 0) > c.cents; i--) over++;
+    if (under >= 2) streakRows.push([`${c.name}: under budget ${under} months in a row`, '', 'down', under]);
+    if (over >= 2) streakRows.push([`${c.name}: over budget ${over} months in a row`, '', 'up', -over]);
+  }
+  streakRows.sort((a, b) => b[3] - a[3]);
+  $('#streaks').replaceChildren();
+  if (streakRows.length) $('#streaks').append(...tlist(streakRows.slice(0, 6).map(r => r.slice(0, 3))).children);
+  else $('#streaks').append(...tlist([[done.length < 2 ? 'Streaks show up after two full months.' : 'No streaks yet. Keep a category under budget two months running.', '']]).children);
+
+  // 3. Category trends: last full month vs the average of the up-to-3 months before it
+  const trends = $('#catTrends'); trends.replaceChildren();
+  if (done.length < 2) {
+    trends.append(...tlist([['Trends show up once you have two full months of spending.', '']]).children);
+  } else {
+    const last = done[done.length - 1], before = done.slice(-4, -1);
+    const names = [...new Set([...categories.map(c => c.name), ...done.flatMap(s => Object.keys(s.byCat))])];
+    const rows = [];
+    for (const name of names) {
+      const now = last.byCat[name] || 0, avg = before.reduce((a, s) => a + (s.byCat[name] || 0), 0) / before.length, diff = now - avg;
+      if (Math.abs(diff) >= 1000 && Math.abs(diff) >= 0.1 * Math.max(avg, now))
+        rows.push([`${name}: ${fmt(Math.round(Math.abs(diff) / 100) * 100).replace(/.00$/, "")} ${diff < 0 ? 'less' : 'more'} than your ${before.length}-month average`, monShort(last.m), diff < 0 ? 'down' : 'up', Math.abs(diff)]);
+      const lastThree = done.slice(-3).map(s => s.byCat[name] || 0);
+      if (lastThree.length === 3 && lastThree[0] < lastThree[1] && lastThree[1] < lastThree[2])
+        rows.push([`${name}: up 3 months in a row`, '', 'up', Math.abs(diff) + 1]);
+    }
+    rows.sort((a, b) => b[3] - a[3]);
+    trends.append(...tlist(rows.length ? rows.slice(0, 6).map(r => r.slice(0, 3)) : [['Your spending held steady last month. No big changes.', '']]).children);
+  }
+
+  // Table view of everything above
+  const t = $('#insRows');
+  t.innerHTML = '<thead><tr><th>Month</th><th>In</th><th>Out</th><th>Kept</th><th>Saved</th><th>Health</th></tr></thead><tbody></tbody>';
+  for (const s of [...st].reverse()) {
+    const tr = document.createElement('tr');
+    for (const v of [monthName(s.m) + (s === cur ? ' (so far)' : ''), fmt(s.inn), fmt(s.out), fmt(s.kept), pct(s.rate), s.health == null ? '—' : s.health]) {
+      const td = document.createElement('td'); td.textContent = v; tr.append(td);
+    }
+    t.tBodies[0].append(tr);
+  }
 }
 
 // ---- Daily habits with streaks ----
