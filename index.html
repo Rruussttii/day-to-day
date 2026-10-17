@@ -232,6 +232,7 @@ textarea { font: inherit; color: var(--fg); background: var(--bg); border: 1px s
     <button type="button" id="tabToday" aria-pressed="false">Today</button>
     <button type="button" id="tabMoney" aria-pressed="true">Money</button>
     <button type="button" id="tabFood" aria-pressed="false">Food</button>
+    <button type="button" id="tabHome" aria-pressed="false">Home</button>
     <button type="button" id="tabHabits" aria-pressed="false">Habits</button>
     <button type="button" id="tabInsights" aria-pressed="false">Insights</button>
   </nav>
@@ -319,6 +320,118 @@ textarea { font: inherit; color: var(--fg); background: var(--bg); border: 1px s
     </details>
   </section>
 
+  <section class="tabpane" id="homePane" hidden aria-label="Home">
+    <section class="card" id="hhSetup" aria-label="Share with a roommate" hidden>
+      <h2>Share with a roommate</h2>
+      <p class="muted" style="margin:0">Share a shopping list and vote on recipes together. Everything else in your app stays private.</p>
+      <label><span class="label">Your name (shown to your roommate)</span><input id="hhName" maxlength="20" placeholder="Russ"></label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button type="button" class="primary" id="hhCreate">Create a household</button>
+      </div>
+      <div class="row">
+        <label><span class="label">Or join with an invite code</span><input id="hhCode" maxlength="20" placeholder="K7QD-M2XP-9HTA" autocapitalize="characters" autocomplete="off"></label>
+        <div style="display:flex;align-items:end"><button type="button" id="hhJoin">Join</button></div>
+      </div>
+      <div class="status" id="hhStatus" role="status"></div>
+    </section>
+
+    <section class="card" id="hhBalance" aria-label="Money between you" hidden>
+      <h2>Money between you</h2>
+      <p class="big-stat" id="balLine" style="margin:0;font-size:1.4rem"></p>
+      <button type="button" class="primary" id="settleBtn" hidden style="justify-self:start"></button>
+      <details class="addbox"><summary>+ Log a shared cost</summary>
+        <form class="plain" id="splitForm" autocomplete="off">
+          <div class="row">
+            <label><span class="label">What for</span><input id="splitDesc" maxlength="60" placeholder="Groceries for both" required></label>
+            <label><span class="label">Amount</span><input id="splitAmt" inputmode="decimal" placeholder="40.00" required></label>
+          </div>
+          <div class="row">
+            <label><span class="label">Who paid</span><select id="splitPayer"></select></label>
+            <label><span class="label">Split</span><select id="splitHow"><option value="equal">Split equally</option><option value="other">The others owe all of it</option></select></label>
+          </div>
+          <button class="primary" type="submit">Log it</button>
+        </form>
+      </details>
+      <details class="addbox"><summary id="splitHistTitle">History</summary>
+        <ul class="ledger" id="splitList"></ul>
+      </details>
+      <div class="status" id="splitStatus" role="status"></div>
+    </section>
+
+    <section class="card" id="hhBills" aria-label="Shared bills" hidden>
+      <h2 id="billsTitle">Shared bills</h2>
+      <ul class="ledger" id="sbList"></ul>
+      <details class="addbox"><summary>+ Add a shared bill</summary>
+        <form class="plain" id="sbForm" autocomplete="off">
+          <div class="row">
+            <label><span class="label">Bill</span><input id="sbName" maxlength="40" placeholder="Rent" required></label>
+            <label><span class="label">Monthly amount</span><input id="sbAmt" inputmode="decimal" placeholder="1400" required></label>
+          </div>
+          <label><span class="label">Due on day of the month</span><input id="sbDay" type="number" min="1" max="31" inputmode="numeric" placeholder="1" required></label>
+          <button class="primary" type="submit">Add bill</button>
+        </form>
+      </details>
+      <div class="status" id="sbStatus" role="status"></div>
+    </section>
+
+    <section class="card" id="hhChores" aria-label="Chores" hidden>
+      <h2>Chores</h2>
+      <ul class="ledger" id="choreList"></ul>
+      <details class="addbox"><summary>+ Add a chore</summary>
+        <form class="plain" id="choreForm" autocomplete="off">
+          <div class="row">
+            <label><span class="label">Chore</span><input id="choreName" maxlength="40" placeholder="Take out the trash" required></label>
+            <label><span class="label">How often</span><select id="choreEvery"><option value="1">Every day</option><option value="7" selected>Every week</option><option value="14">Every 2 weeks</option><option value="28">Every 4 weeks</option></select></label>
+          </div>
+          <div class="row">
+            <label><span class="label">First due</span><input id="choreStart" type="date" required></label>
+            <label><span class="label">Whose turn first</span><select id="choreFirst"></select></label>
+          </div>
+          <button class="primary" type="submit">Add chore</button>
+        </form>
+      </details>
+      <div class="status" id="choreStatus" role="status"></div>
+    </section>
+
+    <section class="card" id="sharedShop" aria-label="Shared shopping list" hidden>
+      <div class="env-top">
+        <h2 id="sharedTitle">Shared shopping list</h2>
+        <span class="muted" style="font-size:0.85rem" id="hhMembers"></span>
+      </div>
+      <ul class="ledger" id="sharedList"></ul>
+      <form class="plain" id="sharedForm" autocomplete="off">
+        <div class="row">
+          <label><span class="label">Item</span><input id="sharedName" maxlength="40" placeholder="Paper towels" required></label>
+          <label><span class="label">How much (optional)</span><input id="sharedQty" maxlength="20" placeholder="2"></label>
+        </div>
+        <button class="primary" type="submit">Add to shared list</button>
+      </form>
+      <div class="status" id="sharedStatus" role="status"></div>
+      <details class="addbox"><summary>Household settings</summary>
+        <div style="display:grid;gap:10px">
+          <p style="margin:0">Invite code: <b class="num" id="hhCodeShow"></b> <button type="button" class="small-btn" id="hhCopy">Copy</button></p>
+          <p class="muted" style="margin:0;font-size:0.85rem">Your roommate enters this under Food → Share with a roommate → Join.</p>
+          <button type="button" class="del" id="hhLeave" style="justify-self:start">Leave household</button>
+        </div>
+      </details>
+    </section>
+
+    <section class="card" id="voteBox" aria-label="Recipe vote" hidden>
+      <div class="env-top">
+        <h2>What should we cook?</h2>
+        <input type="date" id="voteDate" style="width:auto;padding:5px 8px" aria-label="Day to vote on">
+      </div>
+      <p class="muted" style="margin:0;font-size:0.85rem">Add a few options, then each of you taps one. Change your vote any time.</p>
+      <ul class="ledger" id="voteList"></ul>
+      <div class="row">
+        <label><span class="label">Add an option</span><input id="voteOption" list="recipeNames" maxlength="60" placeholder="Pick a saved recipe or type one"></label>
+        <div style="display:flex;align-items:end"><button type="button" id="voteAdd">Add option</button></div>
+      </div>
+      <button type="button" class="primary" id="votePlan" hidden></button>
+      <div class="status" id="voteStatus" role="status"></div>
+    </section>
+  </section>
+
   <section class="tabpane" id="habitsPane" hidden aria-label="Habits">
     <section class="card" aria-label="Today's habits">
       <div class="env-top">
@@ -388,58 +501,6 @@ textarea { font: inherit; color: var(--fg); background: var(--bg); border: 1px s
       <button class="primary" type="submit">Add item</button>
       <div class="status" id="foodStatus" role="status"></div>
     </form>
-
-    <section class="card" id="hhSetup" aria-label="Share with a roommate" hidden>
-      <h2>Share with a roommate</h2>
-      <p class="muted" style="margin:0">Share a shopping list and vote on recipes together. Everything else in your app stays private.</p>
-      <label><span class="label">Your name (shown to your roommate)</span><input id="hhName" maxlength="20" placeholder="Russ"></label>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button type="button" class="primary" id="hhCreate">Create a household</button>
-      </div>
-      <div class="row">
-        <label><span class="label">Or join with an invite code</span><input id="hhCode" maxlength="20" placeholder="K7QD-M2XP-9HTA" autocapitalize="characters" autocomplete="off"></label>
-        <div style="display:flex;align-items:end"><button type="button" id="hhJoin">Join</button></div>
-      </div>
-      <div class="status" id="hhStatus" role="status"></div>
-    </section>
-
-    <section class="card" id="sharedShop" aria-label="Shared shopping list" hidden>
-      <div class="env-top">
-        <h2 id="sharedTitle">Shared shopping list</h2>
-        <span class="muted" style="font-size:0.85rem" id="hhMembers"></span>
-      </div>
-      <ul class="ledger" id="sharedList"></ul>
-      <form class="plain" id="sharedForm" autocomplete="off">
-        <div class="row">
-          <label><span class="label">Item</span><input id="sharedName" maxlength="40" placeholder="Paper towels" required></label>
-          <label><span class="label">How much (optional)</span><input id="sharedQty" maxlength="20" placeholder="2"></label>
-        </div>
-        <button class="primary" type="submit">Add to shared list</button>
-      </form>
-      <div class="status" id="sharedStatus" role="status"></div>
-      <details class="addbox"><summary>Household settings</summary>
-        <div style="display:grid;gap:10px">
-          <p style="margin:0">Invite code: <b class="num" id="hhCodeShow"></b> <button type="button" class="small-btn" id="hhCopy">Copy</button></p>
-          <p class="muted" style="margin:0;font-size:0.85rem">Your roommate enters this under Food → Share with a roommate → Join.</p>
-          <button type="button" class="del" id="hhLeave" style="justify-self:start">Leave household</button>
-        </div>
-      </details>
-    </section>
-
-    <section class="card" id="voteBox" aria-label="Recipe vote" hidden>
-      <div class="env-top">
-        <h2>What should we cook?</h2>
-        <input type="date" id="voteDate" style="width:auto;padding:5px 8px" aria-label="Day to vote on">
-      </div>
-      <p class="muted" style="margin:0;font-size:0.85rem">Add a few options, then each of you taps one. Change your vote any time.</p>
-      <ul class="ledger" id="voteList"></ul>
-      <div class="row">
-        <label><span class="label">Add an option</span><input id="voteOption" list="recipeNames" maxlength="60" placeholder="Pick a saved recipe or type one"></label>
-        <div style="display:flex;align-items:end"><button type="button" id="voteAdd">Add option</button></div>
-      </div>
-      <button type="button" class="primary" id="votePlan" hidden></button>
-      <div class="status" id="voteStatus" role="status"></div>
-    </section>
 
     <section class="card" aria-label="Weekly meal plan">
       <div class="env-top">
@@ -897,7 +958,7 @@ $('#icsBtn').onclick = async () => {
 // ---- Food: shopping list and what's already in the kitchen ----
 let food = [];        // [{id, name, status: 'need'|'have'}]
 let foodRef = null;
-const TABS = ['today', 'money', 'food', 'habits', 'insights'];
+const TABS = ['today', 'money', 'food', 'home', 'habits', 'insights'];
 const cap = s => s[0].toUpperCase() + s.slice(1);
 function showTab(name) {
   for (const t of TABS) {
@@ -1639,6 +1700,17 @@ function renderToday() {
   }
   box.append(hab);
 
+  // Home: my chores that are due or overdue, and where the money stands with my roommate.
+  // (The household code loads in a later script, so check it exists before using it.)
+  if (typeof hh !== 'undefined' && hh) {
+    const home = tcard('Home', 'Open', () => goTo('home'));
+    const myChores = chores.map(c => ({ c, st: choreState(c, day) })).filter(x => x.st.who === fuid && x.st.status !== 'upcoming');
+    home.append(tline(myBalanceText(), 'muted'));
+    home.append(myChores.length ? tlist(myChores.map(({ c, st }) => [c.name, st.status === 'overdue' ? 'overdue' : 'today', st.status === 'overdue' ? 'up' : '']))
+      : tline('No chores due for you today.', 'muted'));
+    box.append(home);
+  }
+
   // Food expiring within 3 days
   const expiring = food.filter(f => f.status === 'have' && f.expires && ud(f.expires) - ud(day) <= 3 * DAY).sort((a, b) => a.expires.localeCompare(b.expires));
   const fd = tcard('Use it up', 'Food', () => goTo('food'));
@@ -2243,13 +2315,13 @@ const fmtCode = c => c.replace(/(.{4})(?=.)/g, '$1-');
 const cleanCode = s => s.toUpperCase().replace(/[^A-Z0-9]/g, '');
 console.assert(fmtCode('K7QDM2XP9HTA') === 'K7QD-M2XP-9HTA' && cleanCode(' k7qd-m2xp 9hta ') === 'K7QDM2XP9HTA', 'invite code self-check failed');
 
-let hh = null, hhId = null, hhPtr = null, hhUnsubs = [], shared = [], vote = null, voteUnsub = null;
+let hh = null, hhId = null, hhPtr = null, hhUnsubs = [], shared = [], vote = null, voteUnsub = null, splits = [], sbills = [], chores = [];
 const FV = () => firebase.firestore.FieldValue;
 const nameOf = u => u === fuid ? 'you' : (hh?.names?.[u] || 'your roommate');
 function hhStop() {
   hhUnsubs.forEach(u => u()); hhUnsubs = [];
   if (voteUnsub) voteUnsub(); voteUnsub = null;
-  hh = null; hhId = null; shared = []; vote = null;
+  hh = null; hhId = null; shared = []; vote = null; splits = []; sbills = []; chores = [];
 }
 function startHousehold(db, uid) {
   hhPtr = db.doc(`data/users/${uid}/household`);   // which household I'm in: {id}
@@ -2261,17 +2333,20 @@ function startHousehold(db, uid) {
     const ref = db.doc(`households/${id}`);
     hhUnsubs.push(ref.onSnapshot(d => { hh = d.exists && (d.data().members || []).includes(uid) ? d.data() : null; renderHousehold(); }, () => { hh = null; renderHousehold(); }));
     hhUnsubs.push(ref.collection('shopping').orderBy('created').onSnapshot(q => { shared = q.docs.map(d => ({ id: d.id, ...d.data() })); renderShared(); }, () => {}));
+    hhUnsubs.push(ref.collection('expenses').orderBy('created').onSnapshot(q => { splits = q.docs.map(d => ({ id: d.id, ...d.data() })); renderHome(); }, () => {}));
+    hhUnsubs.push(ref.collection('bills').onSnapshot(q => { sbills = q.docs.map(d => ({ id: d.id, ...d.data() })); renderHome(); }, () => {}));
+    hhUnsubs.push(ref.collection('chores').onSnapshot(q => { chores = q.docs.map(d => ({ id: d.id, ...d.data() })); renderHome(); }, () => {}));
     watchVote();
   }, () => {});
 }
 function renderHousehold() {
   const inHH = !!(hhId && hh);
   $('#hhSetup').hidden = !fuid || inHH;
-  $('#sharedShop').hidden = !inHH; $('#voteBox').hidden = !inHH;
+  for (const id of ['#sharedShop', '#voteBox', '#hhBalance', '#hhBills', '#hhChores']) $(id).hidden = !inHH;
   if (!inHH) return;
   $('#hhMembers').textContent = hh.members.map(u => u === fuid ? 'You' : (hh.names?.[u] || 'Roommate')).join(' & ');
   $('#hhCodeShow').textContent = fmtCode(hhId);
-  renderShared(); renderVote();
+  renderShared(); renderVote(); renderHome();
 }
 
 $('#hhCreate').onclick = async () => {
@@ -2440,6 +2515,186 @@ $('#importFile').onchange = async () => {
     status(`Imported everything (${writes.length} items).`, false, el);
   } catch { status('The import stopped partway. Try again; already-imported expenses may show twice.', true, el); }
 };
+
+// ---- Home: money between roommates, shared bills, chore rotation ----
+// Split an amount in cents equally; leftover cents go to the first people so the parts always add up.
+function splitEqual(cents, people) {
+  const base = Math.floor(cents / people.length), extra = cents - base * people.length;
+  return Object.fromEntries(people.map((p, i) => [p, base + (i < extra ? 1 : 0)]));
+}
+// Net per person in cents: positive means the others owe them, negative means they owe.
+function hhBalances(entries, members) {
+  const net = Object.fromEntries(members.map(m => [m, 0]));
+  for (const e of entries) {
+    if (e.kind === 'settle') { if (e.from in net) net[e.from] += e.cents; if (e.to in net) net[e.to] -= e.cents; continue; }
+    if (e.paidBy in net) net[e.paidBy] += e.cents;
+    for (const [m, c] of Object.entries(e.split || {})) if (m in net) net[m] -= c;
+  }
+  return net;
+}
+// The chore occurrence that matters now: the latest due date up to today, or the next one once that's done.
+function choreState(c, day) {
+  const step = c.every * DAY, s = ud(c.start), t = ud(day);
+  let k = t < s ? 0 : Math.floor((t - s) / step), due = ds(s + k * step);
+  if (c.done?.[due]) { k++; due = ds(s + k * step); }
+  return { due, who: c.order[(k + (c.first || 0)) % c.order.length], status: due < day ? 'overdue' : due === day ? 'today' : 'upcoming' };
+}
+console.assert((() => {
+  const sp = splitEqual(1001, ['a', 'b', 'c']);
+  const n1 = hhBalances([{ paidBy: 'a', cents: 4000, split: splitEqual(4000, ['a', 'b']) }], ['a', 'b']);
+  const n2 = hhBalances([{ paidBy: 'a', cents: 4000, split: splitEqual(4000, ['a', 'b']) }, { kind: 'settle', from: 'b', to: 'a', cents: 2000 }], ['a', 'b']);
+  const c = { every: 7, start: '2026-10-01', order: ['a', 'b'] };
+  const s1 = choreState(c, '2026-10-09'), s2 = choreState({ ...c, done: { '2026-10-08': 'b' } }, '2026-10-09'), s3 = choreState(c, '2026-09-20');
+  return sp.a + sp.b + sp.c === 1001 && sp.a === 334 && n1.a === 2000 && n1.b === -2000 && n2.a === 0 && n2.b === 0
+    && s1.due === '2026-10-08' && s1.who === 'b' && s1.status === 'overdue'
+    && s2.due === '2026-10-15' && s2.who === 'a' && s2.status === 'upcoming' && s3.due === '2026-10-01' && s3.who === 'a';
+})(), 'home self-check failed');
+
+const ordinal = n => { const s = ['th', 'st', 'nd', 'rd'], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); };
+console.assert(['1st', '2nd', '3rd', '4th', '11th', '12th', '21st', '22nd', '31st'].join() === [1, 2, 3, 4, 11, 12, 21, 22, 31].map(ordinal).join(), 'ordinal self-check failed');
+const hhCol = name => fdb.collection(`households/${hhId}/${name}`);
+const Name = u => u === fuid ? 'You' : (hh?.names?.[u] || 'Roommate');
+function fillMemberSelect(sel, firstIsMe) {
+  const prev = sel.value; sel.replaceChildren();
+  const order = firstIsMe ? [fuid, ...hh.members.filter(m => m !== fuid)] : hh.members;
+  for (const m of order) sel.append(new Option(m === fuid ? 'Me' : Name(m), m));
+  if ([...sel.options].some(o => o.value === prev)) sel.value = prev;
+}
+function armDelete(btn, label, action) {
+  btn.onclick = () => {
+    if (!btn.dataset.armed) { btn.dataset.armed = '1'; btn.textContent = label; setTimeout(() => { delete btn.dataset.armed; btn.textContent = '✕'; }, 3000); return; }
+    action();
+  };
+}
+function myBalanceText() {
+  if (!hh) return '';
+  const net = hhBalances(splits, hh.members), others = hh.members.filter(m => m !== fuid);
+  if (others.length === 1) {
+    const o = others[0], v = net[fuid];
+    return v > 0 ? `${Name(o)} owes you ${fmt(v)}` : v < 0 ? `You owe ${Name(o)} ${fmt(-v)}` : `You're all square with ${Name(o)}`;
+  }
+  return net[fuid] > 0 ? `You're owed ${fmt(net[fuid])} overall` : net[fuid] < 0 ? `You owe ${fmt(-net[fuid])} overall` : 'Everyone is square';
+}
+
+function renderHome() {
+  if (!hh) return;
+  renderToday();
+  // Money between you
+  const net = hhBalances(splits, hh.members), others = hh.members.filter(m => m !== fuid);
+  $('#balLine').textContent = myBalanceText();
+  const settle = $('#settleBtn'), v = net[fuid], o = others[0];
+  settle.hidden = others.length !== 1 || v === 0;
+  if (!settle.hidden) settle.textContent = v < 0 ? `I paid ${Name(o)} ${fmt(-v)}` : `${Name(o)} paid me ${fmt(v)}`;
+  fillMemberSelect($('#splitPayer'), true);
+  $('#splitHistTitle').textContent = `History (${splits.length})`;
+  const ul = $('#splitList'); ul.replaceChildren();
+  if (!splits.length) { const li = document.createElement('li'); li.className = 'muted'; li.style.display = 'block'; li.textContent = 'Nothing logged yet.'; ul.append(li); }
+  for (const e of [...splits].sort((a, b) => b.created - a.created).slice(0, 30)) {
+    const li = document.createElement('li');
+    li.innerHTML = '<span class="when"></span><span class="what"><span></span><small></small></span><span class="num"></span><button class="del" type="button">✕</button>';
+    li.children[0].textContent = shortDate(e.date);
+    li.querySelector('.what span').textContent = e.kind === 'settle' ? `${Name(e.from)} paid ${Name(e.to)}` : e.desc;
+    li.querySelector('.what small').textContent = e.kind === 'settle' ? 'Settled up'
+      : `${Name(e.paidBy)} paid · ` + (Object.keys(e.split || {}).includes(e.paidBy) ? 'split equally' : 'the others owe it');
+    li.children[2].textContent = fmt(e.cents);
+    li.children[3].setAttribute('aria-label', `Delete ${e.desc || 'this entry'}`);
+    armDelete(li.children[3], 'Delete', () => hhCol('expenses').doc(e.id).delete().catch(() => status('Could not delete that. Try again.', true, $('#splitStatus'))));
+    ul.append(li);
+  }
+
+  // Shared bills
+  const cur = today().slice(0, 7), dayNum = Number(today().slice(8));
+  $('#billsTitle').textContent = `Shared bills${sbills.length ? ` (${sbills.length})` : ''}`;
+  const bl = $('#sbList'); bl.replaceChildren();
+  if (!sbills.length) { const li = document.createElement('li'); li.className = 'muted'; li.style.display = 'block'; li.textContent = 'No shared bills yet. Add rent, internet or utilities below.'; bl.append(li); }
+  for (const b of [...sbills].sort((a, c) => a.day - c.day)) {
+    const paid = splits.find(e => e.billId === b.id && e.month === cur);
+    const li = document.createElement('li'); li.className = 'food';
+    li.innerHTML = '<span></span><span class="what"><span></span><small></small></span><span class="num"></span><button class="del" type="button">✕</button>';
+    const tag = document.createElement('span'); tag.className = 'pill ' + (paid ? 'done' : b.day < dayNum ? 'over' : b.day - dayNum <= 3 ? 'warn' : '');
+    tag.textContent = paid ? 'Paid' : b.day < dayNum ? 'Overdue' : `Due the ${ordinal(b.day)}`;
+    li.children[0].append(tag);
+    li.querySelector('.what span').textContent = b.name;
+    li.querySelector('.what small').textContent = paid ? `${Name(paid.paidBy)} paid it ${shortDate(paid.date)}, split equally` : `${fmt(Math.round(b.cents / hh.members.length))} each`;
+    if (!paid) {
+      const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'small-btn primary'; btn.textContent = 'I paid it';
+      btn.onclick = () => hhCol('expenses').add({ desc: `${b.name} (${monShort(cur)})`, cents: b.cents, paidBy: fuid, split: splitEqual(b.cents, hh.members),
+        date: today(), month: cur, created: Date.now(), billId: b.id }).catch(() => status('Could not save that. Try again.', true, $('#sbStatus')));
+      li.children[2].replaceWith(btn);
+    } else li.children[2].textContent = fmt(b.cents);
+    const del = li.querySelector('.del');
+    del.setAttribute('aria-label', `Delete bill ${b.name}`);
+    armDelete(del, 'Delete', () => hhCol('bills').doc(b.id).delete().catch(() => status('Could not delete that. Try again.', true, $('#sbStatus'))));
+    bl.append(li);
+  }
+
+  // Chores
+  fillMemberSelect($('#choreFirst'), true);
+  if (!$('#choreStart').value) $('#choreStart').value = today();
+  const cl = $('#choreList'); cl.replaceChildren();
+  if (!chores.length) { const li = document.createElement('li'); li.className = 'muted'; li.style.display = 'block'; li.textContent = 'No chores yet. Add one below and it will take turns between you.'; cl.append(li); }
+  const day = today();
+  for (const c of [...chores].sort((a, b) => choreState(a, day).due.localeCompare(choreState(b, day).due))) {
+    const st = choreState(c, day), mine = st.who === fuid;
+    const li = document.createElement('li'); li.className = 'food';
+    li.innerHTML = '<span></span><span class="what"><span></span><small></small></span><button type="button" class="small-btn"></button><button class="del" type="button">✕</button>';
+    const tag = document.createElement('span'); tag.className = 'pill ' + (st.status === 'overdue' ? 'over' : st.status === 'today' ? 'warn' : '');
+    tag.textContent = st.status === 'overdue' ? 'Overdue' : st.status === 'today' ? 'Today' : shortDate(st.due);
+    li.children[0].append(tag);
+    li.querySelector('.what span').textContent = c.name;
+    li.querySelector('.what small').textContent = `${mine ? 'Your' : `${Name(st.who)}'s`} turn · every ${({ 1: 'day', 7: 'week', 14: '2 weeks', 28: '4 weeks' })[c.every] || `${c.every} days`}`;
+    const done = li.children[2];
+    done.textContent = 'Done'; if (mine && st.status !== 'upcoming') done.classList.add('primary');
+    done.setAttribute('aria-label', `Mark ${c.name} done for ${shortDate(st.due)}`);
+    done.onclick = () => hhCol('chores').doc(c.id).update(new firebase.firestore.FieldPath('done', st.due), fuid)
+      .catch(() => status('Could not save that. Try again.', true, $('#choreStatus')));
+    const del = li.children[3];
+    del.setAttribute('aria-label', `Delete chore ${c.name}`);
+    armDelete(del, 'Delete', () => hhCol('chores').doc(c.id).delete().catch(() => status('Could not delete that. Try again.', true, $('#choreStatus'))));
+    cl.append(li);
+  }
+}
+
+$('#settleBtn').onclick = async () => {
+  const net = hhBalances(splits, hh.members), v = net[fuid], o = hh.members.find(m => m !== fuid);
+  if (!v || !o) return;
+  try {
+    await hhCol('expenses').add({ kind: 'settle', from: v < 0 ? fuid : o, to: v < 0 ? o : fuid, cents: Math.abs(v), date: today(), month: today().slice(0, 7), created: Date.now() });
+    status('Settled up.', false, $('#splitStatus'));
+  } catch { status('Could not save that. Try again.', true, $('#splitStatus')); }
+};
+$('#splitForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const el = $('#splitStatus'), desc = $('#splitDesc').value.trim(), cents = toCents($('#splitAmt').value), payer = $('#splitPayer').value;
+  if (!desc) return status('Say what it was for.', true, el);
+  if (!cents) return status('Enter an amount like 40.00.', true, el);
+  const who = $('#splitHow').value === 'equal' ? hh.members : hh.members.filter(m => m !== payer);
+  if (!who.length) return status('There is nobody else to split with yet.', true, el);
+  try {
+    await hhCol('expenses').add({ desc, cents, paidBy: payer, split: splitEqual(cents, who), date: today(), month: today().slice(0, 7), created: Date.now() });
+    $('#splitDesc').value = ''; $('#splitAmt').value = '';
+    status(`Logged ${desc}. ${myBalanceText()}.`, false, el);
+  } catch { status('Could not save that. Try again.', true, el); }
+});
+$('#sbForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const el = $('#sbStatus'), name = $('#sbName').value.trim(), cents = toCents($('#sbAmt').value), day = parseInt($('#sbDay').value, 10);
+  if (!name) return status('Name the bill, like "Rent".', true, el);
+  if (!cents) return status('Enter the monthly amount, like 1400.', true, el);
+  if (!(day >= 1 && day <= 31)) return status('Enter the day of the month it\'s due, 1 to 31.', true, el);
+  try { await hhCol('bills').add({ name, cents, day, created: Date.now() }); for (const id of ['#sbName', '#sbAmt', '#sbDay']) $(id).value = ''; status(`Added ${name}.`, false, el); }
+  catch { status('Could not add that bill. Try again.', true, el); }
+});
+$('#choreForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const el = $('#choreStatus'), name = $('#choreName').value.trim(), start = $('#choreStart').value || today();
+  if (!name) return status('Name the chore.', true, el);
+  const order = [...hh.members], first = Math.max(0, order.indexOf($('#choreFirst').value));
+  try {
+    await hhCol('chores').add({ name, every: Number($('#choreEvery').value), start, order, first, done: {}, created: Date.now() });
+    $('#choreName').value = ''; status(`Added ${name}.`, false, el);
+  } catch { status('Could not add that chore. Try again.', true, el); }
+});
 
 // ---- Firebase: sign-in and private, synced storage ----
 (() => {
