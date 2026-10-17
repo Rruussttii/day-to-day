@@ -2512,7 +2512,6 @@ function render() {
       makeEditable(li.children[1], e.note || n, () => openEditor(li, [
         { key: 'cents', label: 'Amount', type: 'money', value: e.cents, required: true },
         { key: 'category', label: 'Category', type: 'select', value: e.category, options: [...new Set([...categoryNames(), e.category])].map(c => [c, c]) },
-        { key: 'note', label: 'What for', type: 'text', value: e.note || '' },
         { key: 'date', label: 'Date', type: 'date', value: e.date, required: true },
       ], async v => { await expCol.doc(e.id).update({ ...v, month: v.date.slice(0, 7) }); allExp = null; },
       { onCancel: render, onDelete: () => expCol.doc(e.id).delete() }));
@@ -2681,7 +2680,6 @@ function openTipEditor(li, t) {
   openEditor(li, [
     { key: 'cents', label: 'Amount', type: 'money', value: t.cents, required: true },
     { key: 'hours', label: 'Hours worked', type: 'number', value: t.hours || '' },
-    { key: 'note', label: 'What for', type: 'text', value: t.note || '' },
     { key: 'date', label: 'Date', type: 'date', value: t.date, required: true },
   ], async v => {
     if (v.hours > 24) return 'Hours worked should be 24 or less.';
