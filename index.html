@@ -2134,7 +2134,7 @@ async function runSearch() {
     li.children[0].textContent = new Date(e.date + 'T12:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: e.date.slice(0, 4) === today().slice(0, 4) ? undefined : '2-digit' });
     li.querySelector('.what span').textContent = e.note || e.category;
     li.querySelector('.what small').textContent = e.note ? e.category + (e.shared ? ' · your share' : '') : '';
-    li.children[2].textContent = fmt(e.cents);
+    li.children[2].replaceChildren(money(-e.cents));
     ul.append(li);
   }
   if (rows.length > 50) { const li = document.createElement('li'); li.className = 'muted'; li.style.display = 'block'; li.textContent = `Showing the latest 50 of ${rows.length}.`; ul.append(li); }
@@ -2480,7 +2480,7 @@ function render() {
       li.innerHTML = '<span class="when"></span><span class="what"></span><span class="num"></span><button class="del" type="button">✕</button>';
       li.children[0].textContent = new Date(e.date + 'T12:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
       li.children[1].textContent = e.note || n;
-      li.children[2].textContent = fmt(e.cents);
+      li.children[2].replaceChildren(money(-e.cents));
       if (e.shared) {
         // Your share of a household cost: change or delete it on the Home tab, where the full cost lives.
         const tag = document.createElement('span'); tag.className = 'muted'; tag.style.fontSize = '0.8rem'; tag.textContent = 'your share';
