@@ -2113,10 +2113,29 @@ function searchFrom(when, cur) {
   return when === 'month' ? cur : when === '3' ? monthsBack(cur, 3)[0] : when === 'year' ? cur.slice(0, 4) + '-01' : '';
 }
 console.assert(searchFrom('3', '2026-02') === '2025-12' && searchFrom('year', '2026-10') === '2026-01' && searchFrom('all', '2026-10') === '', 'searchFrom self-check failed');
-// Categories to look up: your list plus any category that has spending (older ones, Shared costs).
+// Bills from the Paydays & bills calendar that have come due (up to today) since `from` ('YYYY-MM', or '' for all time),
+// shaped like expenses so the lookup can count them. Upcoming bills aren't spent yet, so they're left out.
+function billRows(from, day = today()) {
+  const out = [], cur = day.slice(0, 7);
+  for (const ev of events) {
+    if (ev.kind !== 'bill') continue;
+    for (let m = from && from > ev.date.slice(0, 7) ? from : ev.date.slice(0, 7); m <= cur; m = ds(Date.UTC(+m.slice(0, 4), +m.slice(5, 7), 1)).slice(0, 7))
+      for (const d of occurrences(ev, m)) if (d <= day) out.push({ category: 'Bills', note: ev.name, cents: ev.cents, date: d, month: m, bill: true });
+  }
+  return out;
+}
+console.assert((() => {
+  const saved = events;
+  events = [{ kind: 'bill', name: 'Rent', cents: 100000, date: '2026-08-01', repeat: 'monthly' }, { kind: 'pay', name: 'Pay', cents: 5, date: '2026-08-01', repeat: 'monthly' }];
+  const all = billRows('', '2026-10-15'), sinceSep = billRows('2026-09', '2026-10-15'), early = billRows('', '2026-07-01');
+  events = saved;
+  return all.length === 3 && sinceSep.length === 2 && early.length === 0 && all.every(r => r.category === 'Bills' && r.note === 'Rent');
+})(), 'billRows self-check failed');
+
+// Categories to look up: your list plus any category that has spending (older ones, Shared costs, Bills).
 function fillLookupCats() {
   const sel = $('#srchCat'), prev = sel.value;
-  const names = [...new Set([...categoryNames(), ...(allExp || []).map(e => e.category), ...mySharedRows().map(e => e.category)])].filter(Boolean);
+  const names = [...new Set([...categoryNames(), ...(allExp || []).map(e => e.category), ...mySharedRows().map(e => e.category), ...(events.some(e => e.kind === 'bill') ? ['Bills'] : [])])].filter(Boolean);
   sel.replaceChildren(new Option('All categories', ''), ...names.map(n => new Option(n, n)));
   sel.value = names.includes(prev) ? prev : '';
 }
@@ -2130,7 +2149,7 @@ async function runSearch() {
   }
   ul.replaceChildren();
   const from = searchFrom($('#srchWhen').value, today().slice(0, 7)), label = $('#srchWhen').selectedOptions[0].textContent.toLowerCase();
-  const rows = [...allExp, ...mySharedRows()].filter(e => e.month >= from && (!cat || e.category === cat)).sort((a, b) => b.date.localeCompare(a.date));
+  const rows = [...allExp, ...mySharedRows(), ...billRows(from)].filter(e => e.month >= from && (!cat || e.category === cat)).sort((a, b) => b.date.localeCompare(a.date));
   const total = rows.reduce((a, e) => a + e.cents, 0);
   out.replaceChildren();
   if (!rows.length) { out.textContent = `No spending${cat ? ` on ${cat}` : ''} ${label}.`; return; }
@@ -2156,7 +2175,7 @@ async function runSearch() {
     li.innerHTML = '<span class="when"></span><span class="what"><span></span><small></small></span><span class="num"></span><span></span>';
     li.children[0].textContent = new Date(e.date + 'T12:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: e.date.slice(0, 4) === today().slice(0, 4) ? undefined : '2-digit' });
     li.querySelector('.what span').textContent = e.note || e.category;
-    li.querySelector('.what small').textContent = e.shared ? 'your share' : '';
+    li.querySelector('.what small').textContent = e.shared ? 'your share' : e.bill ? 'bill from your calendar' : '';
     li.children[2].replaceChildren(money(-e.cents));
     ul.append(li);
   }
@@ -2813,7 +2832,7 @@ function startData(db, uid) {
   habitRef.onSnapshot(s => { const d = s.exists ? s.data() : {}; legacy.habits = isLegacy(d, 'listById', 'list'); habits = { list: readList(d, 'listById', 'list'), done: d.done || {} }; renderHabits(); },
     () => status('Lost connection to your saved data. Reload the page.', true, $('#habitStatus')));
   calRef = db.doc(`data/users/${uid}/calendar`);
-  calRef.onSnapshot(s => { const d = s.data(); legacy.events = isLegacy(d, 'byId', 'events'); events = readList(d, 'byId', 'events'); render(); loadWrap(); },
+  calRef.onSnapshot(s => { const d = s.data(); legacy.events = isLegacy(d, 'byId', 'events'); events = readList(d, 'byId', 'events'); render(); loadWrap(); fillLookupCats(); if (curTab === 'money' && allExp) runSearch(); },
     () => status('Lost connection to your saved data. Reload the page.', true, $('#evStatus')));
 }
 </script>
